@@ -58,6 +58,23 @@ jobs:
       - name: Prepare Windows SQLite binary
         run: npm run rebuild:win
 
+      - name: Create release before publishing
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          $ErrorActionPreference = "Stop"
+          $versionText = (node -p "require('./package.json').version").Trim()
+          $tag = "v$versionText"
+          gh release create $tag `
+            --repo riteshainable-arch/allrounder-pos `
+            --target $env:GITHUB_SHA `
+            --title $versionText `
+            --notes "AllRounder Payroll $versionText"
+          if ($LASTEXITCODE -ne 0) {
+            throw "Could not create release $tag."
+          }
+
       - name: Build and publish installer
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
