@@ -8,10 +8,11 @@ on:
       - package.json
       - package-lock.json
       - electron-builder.yml
+      - .github/workflows/publish-windows-release.yml
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   publish:
@@ -27,12 +28,9 @@ jobs:
       - name: Validate release version
         shell: pwsh
         env:
-          GH_TOKEN: ${{ secrets.RELEASE_REPO_TOKEN }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           $ErrorActionPreference = "Stop"
-          if ([string]::IsNullOrWhiteSpace($env:GH_TOKEN)) {
-            throw "Add RELEASE_REPO_TOKEN to this repository's Actions secrets."
-          }
 
           $versionText = (node -p "require('./package.json').version").Trim()
           if ($versionText -notmatch '^\d+\.\d+\.\d+$') {
@@ -62,5 +60,5 @@ jobs:
 
       - name: Build and publish installer
         env:
-          GH_TOKEN: ${{ secrets.RELEASE_REPO_TOKEN }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: npx electron-builder --win --publish always

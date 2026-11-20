@@ -35,12 +35,7 @@ $ npm run build:linux
 
 ### Windows automatic updates
 
-The installed Windows app checks GitHub Releases when the user clicks **Update app**, then downloads the installer. The user can restart the app to install the downloaded update. Installer assets are published to the public `riteshainable-arch/allrounder-pos` repository; the source code can remain private.
-
-Before publishing:
-
-1. Create a fine-grained personal access token with **Contents: Read and write** permission for `riteshainable-arch/allrounder-pos`.
-2. In this source repository, add the token under **Settings → Secrets and variables → Actions** as `RELEASE_REPO_TOKEN`.
+The installed Windows app checks GitHub Releases when the user clicks **Update app**, then downloads the installer. The user can restart the app to install the downloaded update. Installer assets are published to the public `riteshainable-arch/allrounder-pos` repository. The release workflow uses the repository's built-in `GITHUB_TOKEN`; no personal access token is required.
 
 To publish a new Windows build, increment the version in `package.json` and `package-lock.json` (for example, run `npm version patch --no-git-tag-version`), commit the version change together with the code changes, and push or merge to `main`. GitHub Actions builds the installer and publishes a release. The first release can also be started with **Actions → Publish Windows release → Run workflow**. Each release must have a higher version than the previous one.
 
