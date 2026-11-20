@@ -8,7 +8,6 @@ import { useState } from "react";
 import KitButton from "../../../../kit/components/KitButton/KitButton";
 import KitTextField from "../../../../kit/components/KitTextField/KitTextField";
 import { useSWRLogin } from "../../../../kit/hooks/data/auth";
-import { toast } from "react-toastify";
 import storage from '../../../../kit/hooks/data/services/storage'
 import { Role } from "../../../../kit/configs/general";
 import Logo from "../../../../../resources/allrounder_logo.png";
@@ -38,8 +37,9 @@ const loginSchema = yup.object().shape({
 export default function Login() {
   const navigate = useNavigate();
   const [isPasswordShown, setIsPasswordShown] = useState(true)
+  const [loginErrorMessage, setLoginErrorMessage] = useState('')
 
-  const { create: onLoginAccount, isMutating, error: loginError } = useSWRLogin()
+  const { create: onLoginAccount } = useSWRLogin()
 
   const {
     control,
@@ -54,6 +54,7 @@ export default function Login() {
   const handleClickShowPassword = () => setIsPasswordShown(show => !show)
 
   const onSubmit = async (data) => {
+    setLoginErrorMessage('')
     try {
       const loginDetail = await onLoginAccount(data)
       const role = String(loginDetail?.data?.role || "").toLowerCase()
@@ -76,7 +77,15 @@ export default function Login() {
         return
       }
     } catch (error) {
-      toast.error(error?.message)
+      const message =
+        typeof error === 'string'
+          ? error
+          : error?.message || error?.detail
+      setLoginErrorMessage(
+        typeof message === 'string' && message.trim()
+          ? message
+          : 'Unable to connect to the login server. Check your connection and try again.'
+      )
     }
   };
 
@@ -100,6 +109,11 @@ export default function Login() {
         </p>
 
         <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4">
+          {loginErrorMessage && (
+            <p role="alert" className="text-sm text-red-600">
+              {loginErrorMessage}
+            </p>
+          )}
           <Controller
             name='email'
             control={control}
