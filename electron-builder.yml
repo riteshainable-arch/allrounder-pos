@@ -1,0 +1,64 @@
+appId: com.allrounder.payroll
+productName: AllRounder Payroll
+directories:
+    buildResources: build
+    output: dist
+files:
+    - "!**/.vscode/*"
+    - "!src/*"
+    - "!electron.vite.config.{js,ts,mjs,cjs}"
+    - "!{.eslintcache,eslint.config.mjs,.prettierignore,.prettierrc.yaml,dev-app-update.yml,CHANGELOG.md,README.md}"
+    - "!{.env,.env.*,.npmrc,pnpm-lock.yaml}"
+asarUnpack:
+    - resources/**
+    - node_modules/sqlite3/**
+win:
+    target:
+        - target: nsis
+          arch:
+              - x64
+    # Must match what NSIS shortcuts target — do not use lowercase allrounder-payroll
+    executableName: AllRounder-Payroll
+    icon: build/icon.png
+nsis:
+    artifactName: AllRounder-Payroll-Setup-${version}.${ext}
+    shortcutName: AllRounder Payroll
+    uninstallDisplayName: AllRounder Payroll
+    createDesktopShortcut: always
+    createStartMenuShortcut: true
+    oneClick: false
+    allowToChangeInstallationDirectory: false
+    perMachine: false
+    runAfterFinish: true
+    deleteAppDataOnUninstall: false
+mac:
+    icon: build/icon.png
+    entitlementsInherit: build/entitlements.mac.plist
+    extendInfo:
+        CFBundleDisplayName: AllRounder Payroll
+        CFBundleName: AllRounder Payroll
+        NSCameraUsageDescription: Application requests access to the device's camera.
+        NSMicrophoneUsageDescription: Application requests access to the device's microphone.
+        NSDocumentsFolderUsageDescription: Application requests access to the user's Documents folder.
+        NSDownloadsFolderUsageDescription: Application requests access to the user's Downloads folder.
+    notarize: false
+dmg:
+    artifactName: AllRounder-Payroll-${version}.${ext}
+linux:
+    target:
+        - AppImage
+        - snap
+        - deb
+    icon: build/icon.png
+    maintainer: electronjs.org
+    category: Utility
+appImage:
+    artifactName: AllRounder-Payroll-${version}.${ext}
+npmRebuild: false
+publish:
+    provider: github
+    owner: riteshainable-arch
+    repo: allrounder-pos
+    releaseType: release
+electronDownload:
+    mirror: https://npmmirror.com/mirrors/electron/

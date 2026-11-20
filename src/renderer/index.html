@@ -1,0 +1,39 @@
+<!doctype html>
+<html>
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <link rel="icon" type="image/png" href="/allrounder_favicon.png" />
+        <title>Allrounder</title>
+        <!-- https://developer.mozilla.org/en-US/docs/Web/HTTP/CSP -->
+        <meta
+            http-equiv="Content-Security-Policy"
+            content="
+    default-src 'self';
+    script-src 'self';
+    style-src 'self' 'unsafe-inline';
+    img-src 'self' data: https:;
+    connect-src 'self'
+      http://192.168.29.64:5000
+      http://192.168.29.64:*
+      http://192.168.29.105:5000
+      http://192.168.29.105:*
+      http://192.168.29.32:5000
+      http://192.168.29.32:*
+      http://192.168.29.64:5000
+      http://192.168.29.64:*
+      https://rashanclub.allrounder.app
+      https://*.ngrok-free.app
+      https://*.ngrok.app
+      https://api.iconify.design
+      https://api.simplesvg.com
+      https://api.unisvg.com;
+  "
+        />
+    </head>
+
+    <body>
+        <div id="root"></div>
+        <script type="module" src="/src/main.jsx"></script>
+    </body>
+</html>

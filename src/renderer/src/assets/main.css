@@ -1,0 +1,365 @@
+@import "tailwindcss";
+
+@theme {
+    --color-third: var(--mui-palette-third-main);
+    --color-third-50: var(--mui-palette-third-50);
+    --color-third-100: var(--mui-palette-third-100);
+    --color-third-200: var(--mui-palette-third-200);
+    --color-third-400: var(--mui-palette-third-400);
+    --color-third-500: var(--mui-palette-third-500);
+    --color-third-800: var(--mui-palette-third-800);
+    --color-third-950: var(--mui-palette-third-950);
+    --color-third-reverse: var(--mui-palette-third-reverse);
+    --color-primary: var(--mui-palette-primary-main);
+    --color-primary-hover: var(--mui-palette-customColors-primaryHover);
+    --color-active-hover: var(--mui-palette-customColors-activeBackground);
+    --color-app-bg: var(--mui-palette-background-default);
+    --color-app-paper: var(--mui-palette-background-paper);
+    --color-app-text: var(--mui-palette-text-primary);
+    --color-app-text-secondary: var(--mui-palette-text-secondary);
+    --color-app-border: var(--mui-palette-customColors-inputBorder);
+    --color-header-secondary: var(--mui-palette-customColors-headerSecondary);
+    --color-header-divider: var(--mui-palette-customColors-headerDivider);
+    --color-calendar-bg: var(--mui-palette-customColors-calendarBackground);
+    --color-calendar-icon: var(--mui-palette-customColors-calendarIcon);
+    --color-clock-bg: var(--mui-palette-customColors-clockBackground);
+    --color-clock-icon: var(--mui-palette-customColors-clockIcon);
+    --shadow-drawer: var(--mui-palette-customColors-drawerShadow);
+    --shadow-card: var(--mui-palette-customColors-cardShadow);
+}
+
+html,
+body,
+#root {
+    width: 100%;
+    height: 100%;
+    margin: 0;
+}
+
+:root {
+    --mui-palette-customColors-inputBorder: rgba(47, 51, 73, 0.22);
+    --mui-customShadows-primary-sm: 0 0 0 3px rgba(90, 194, 104, 0.16);
+    --mui-mainColorChannels-light: 47 51 73;
+    --mui-mainColorChannels-dark: 231 227 252;
+}
+
+body {
+    overflow: hidden;
+}
+
+#root {
+    overflow: auto;
+}
+
+#root::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+
+#root::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 10px;
+}
+
+#root::-webkit-scrollbar-thumb {
+    background: #c1c1c1;
+    border-radius: 10px;
+}
+
+#root::-webkit-scrollbar-thumb:hover {
+    background: #6b7280;
+}
+
+html {
+    display: flex;
+    inline-size: 100%;
+    min-block-size: 100%;
+}
+
+a {
+    color: inherit;
+    text-decoration: none;
+}
+
+ul:not([class]) {
+    margin-block: 1rem;
+    padding-inline-start: 40px;
+}
+
+:where([class^="tabler-"]) {
+    font-size: 1.5rem;
+}
+
+.text-primary {
+    color: #2563eb;
+}
+
+@media print {
+    body * {
+        visibility: hidden;
+    }
+
+    #advance-slip-section,
+    #advance-slip-section *,
+    #srn-slip-section,
+    #srn-slip-section *,
+    #day-bill-slip-section,
+    #day-bill-slip-section *,
+    #settlement-slip-section,
+    #settlement-slip-section * {
+        visibility: visible;
+    }
+
+    #advance-slip-section,
+    #srn-slip-section,
+    #day-bill-slip-section,
+    #settlement-slip-section {
+        position: absolute;
+        left: 0;
+        top: 0;
+        width: 100%;
+    }
+
+    @page {
+        size: 80mm auto;
+        margin: 0;
+    }
+}
+
+@media print {
+    body * {
+        visibility: hidden;
+    }
+
+    #voucher-slip-section,
+    #voucher-slip-section * {
+        visibility: visible;
+    }
+
+    #voucher-slip-section {
+        position: absolute;
+        left: 0;
+        top: 0;
+        width: 80mm;
+    }
+
+    @page {
+        size: 80mm auto;
+        margin: 0;
+    }
+}
+
+@media print {
+    body * {
+        visibility: hidden;
+    }
+
+    #print-section,
+    #print-section * {
+        visibility: visible;
+    }
+
+    .MuiDialog-paper:has(#print-section) {
+        margin: 0 !important;
+        padding: 0 !important;
+        width: auto !important;
+        max-width: none !important;
+    }
+
+    #print-section {
+        position: absolute;
+        left: 4mm;
+        top: 0;
+        width: 72mm !important;
+        margin: 0 !important;
+        padding: 0 1mm;
+        box-sizing: border-box;
+    }
+
+    .MuiDialog-paper:has(#srn-slip-section) {
+        margin: 0 !important;
+        padding: 0 !important;
+        width: auto !important;
+        max-width: none !important;
+    }
+
+    #srn-slip-section {
+        position: absolute;
+        left: 4mm;
+        top: 0;
+        width: 72mm !important;
+        margin: 0 !important;
+        padding: 0 1mm;
+        box-sizing: border-box;
+    }
+}
+
+@media print {
+    html,
+    body {
+        margin: 0 !important;
+        padding: 0 !important;
+        background: white !important;
+        overflow: visible !important;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+    }
+
+    body > *:not(.MuiDialog-root) {
+        display: none !important;
+    }
+
+    body * {
+        visibility: hidden;
+    }
+
+    #invoice-section,
+    #invoice-section *,
+    #day-bill-slip-section,
+    #day-bill-slip-section *,
+    #settlement-slip-section,
+    #settlement-slip-section * {
+        visibility: visible;
+    }
+
+    .MuiDialog-root {
+        display: block !important;
+        position: fixed !important;
+        inset: 0 !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        overflow: visible !important;
+    }
+
+    .MuiDialog-container {
+        display: block !important;
+        overflow: visible !important;
+    }
+
+    .MuiDialog-paper,
+    .MuiDialogContent-root {
+        display: block !important;
+        overflow: visible !important;
+        max-height: none !important;
+        box-shadow: none !important;
+        background: transparent !important;
+    }
+
+    .MuiBackdrop-root {
+        display: none !important;
+    }
+
+    .MuiDialog-paper:has(#day-bill-slip-section) {
+        margin: 0 !important;
+        padding: 0 !important;
+        width: auto !important;
+    }
+
+    #invoice-section {
+        position: relative;
+        width: 100%;
+        max-width: 200mm;
+        margin: 0 auto;
+        background: white;
+        font-size: 11px;
+        line-height: 1.2;
+        page-break-inside: avoid;
+        break-inside: avoid;
+    }
+
+    #day-bill-slip-section,
+    #settlement-slip-section {
+        position: relative;
+        width: 80mm;
+        margin: 0;
+        background: white;
+        font-size: 11px;
+        line-height: 1.2;
+        page-break-inside: avoid;
+        break-inside: avoid;
+    }
+
+    #day-bill-slip-section {
+        width: 72mm;
+        padding: 2mm 1mm !important;
+        box-sizing: border-box;
+    }
+
+    #invoice-section table {
+        width: 100%;
+        table-layout: fixed;
+    }
+
+    table {
+        page-break-inside: auto;
+    }
+
+    tr {
+        page-break-inside: avoid;
+        page-break-after: auto;
+    }
+
+    td,
+    th {
+        page-break-inside: avoid;
+    }
+
+    @page {
+        size: 80mm auto;
+        margin: 0;
+    }
+
+    @page day-bill {
+        size: 80mm auto;
+        margin: 0;
+    }
+
+    @page kot-thermal {
+        size: 80mm auto;
+        margin: 0;
+    }
+}
+
+.custom-scroll::-webkit-scrollbar {
+    width: 6px;
+}
+
+.custom-scroll::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 10px;
+}
+
+.custom-scroll::-webkit-scrollbar-thumb {
+    background: #dddddd;
+    border-radius: 10px;
+}
+
+.custom-scroll::-webkit-scrollbar-thumb:hover {
+    background: #6b7280;
+}
+
+.custom-datepicker .react-datepicker {
+    display: flex;
+}
+
+.custom-datepicker .react-datepicker__time-container {
+    width: 110px !important;
+    border-left: 1px solid #eee;
+}
+
+.custom-datepicker .react-datepicker__time-list {
+    max-height: 220px;
+    overflow-y: auto;
+}
+
+.product-editor .ck-editor__editable_inline {
+    min-height: 200px;
+    max-height: 200px;
+    overflow-y: auto;
+}
+
+.keyboard-active-row {
+    outline: 2px solid var(--mui-palette-primary-main) !important;
+    outline-offset: -2px;
+    background-color: var(--mui-palette-customColors-primaryHover) !important;
+}
