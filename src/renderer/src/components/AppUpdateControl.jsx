@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { toast } from "react-toastify";
 
 const isBusy = (status) => status === "checking" || status === "available" || status === "downloading";
 
@@ -38,17 +39,26 @@ export default function AppUpdateControl() {
                 api.downloadAppUpdate().catch((error) => {
                     downloadStartedRef.current = false;
                     if (isMounted) {
-                        setUpdateStatus({
-                            status: "error",
-                            message: error?.message || "Could not download the update.",
-                        });
+                        const message = error?.message || "Could not download the update.";
+                        setUpdateStatus({ status: "idle" });
+                        toast.error(message);
                     }
                 });
                 return;
             }
 
-            if (status.status === "error" || status.status === "not-available") {
+            if (status.status === "error") {
                 downloadStartedRef.current = false;
+                toast.error(status.message || "Could not update the app.");
+                setUpdateStatus({ status: "idle" });
+                return;
+            }
+
+            if (status.status === "not-available") {
+                downloadStartedRef.current = false;
+                toast.info("You have the latest version.");
+                setUpdateStatus({ status: "idle" });
+                return;
             }
 
             setUpdateStatus(status);
@@ -72,10 +82,8 @@ export default function AppUpdateControl() {
             await window.api.checkForAppUpdates();
         } catch (error) {
             downloadStartedRef.current = false;
-            setUpdateStatus({
-                status: "error",
-                message: error?.message || "Could not complete the update.",
-            });
+            setUpdateStatus({ status: "idle" });
+            toast.error(error?.message || "Could not complete the update.");
         }
     };
 
@@ -86,11 +94,6 @@ export default function AppUpdateControl() {
             checking: "Checking...",
             downloading: `Downloading ${updateStatus.percent ?? 0}%`,
         }[updateStatus.status] || "Update app";
-
-    const statusMessage = {
-        "not-available": "You have the latest version.",
-        error: updateStatus.message,
-    }[updateStatus.status];
 
     if (!version) return null;
 
@@ -107,11 +110,6 @@ export default function AppUpdateControl() {
                     >
                         {buttonLabel}
                     </button>
-                    {statusMessage && (
-                        <span className="max-w-56 text-right" role="status">
-                            {statusMessage}
-                        </span>
-                    )}
                 </div>
             )}
         </div>
