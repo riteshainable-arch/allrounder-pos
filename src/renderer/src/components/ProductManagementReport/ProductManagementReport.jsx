@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Chip, IconButton, Paper, Typography } from "@mui/material";
+import { Chip, Divider, IconButton, Paper, Typography } from "@mui/material";
 import {
     useGetAllInventoryAlerts,
     useGetDisplayArray,
@@ -513,6 +513,7 @@ export default function ProductManagementReport({ alertType }) {
 
     return (
         <div>
+            <Divider className="mb-3!" />
             <div className="flex flex-col gap-3 w-full min-w-0">
                 <KitHeader
                     title={headerConfig.title}
@@ -523,9 +524,9 @@ export default function ProductManagementReport({ alertType }) {
                 />
 
                 <Paper elevation={0} className="p-3 border border-gray-200 rounded-xl">
-                    <div className="grid grid-cols-2 items-end gap-x-2 gap-y-3 md:flex md:flex-wrap md:gap-y-7">
+                    <div className="flex flex-wrap items-end gap-x-3 gap-y-7">
                         <div className="relative">
-                            <ShortcutBadge shortcut="Alt + I" className="top-0 hidden md:block" />
+                            <ShortcutBadge shortcut="Alt + I" className="top-0" />
                             <KitTextField
                                 inputRef={itemCodeRef}
                                 size="small"
@@ -535,11 +536,11 @@ export default function ProductManagementReport({ alertType }) {
                                 value={itemCode}
                                 onChange={(e) => setItemCode(e.target.value)}
                                 placeholder="e.g. ALR39337"
-                                className="w-full md:w-44"
+                                className="w-44"
                             />
                         </div>
                         <div className="relative">
-                            <ShortcutBadge shortcut="Alt + P" className="top-0 hidden md:block" />
+                            <ShortcutBadge shortcut="Alt + P" className="top-0" />
                             <KitTextField
                                 inputRef={productRef}
                                 size="small"
@@ -549,11 +550,11 @@ export default function ProductManagementReport({ alertType }) {
                                 value={search}
                                 onChange={(e) => setSearch(e.target.value)}
                                 placeholder="Search by product name or category"
-                                className="w-full md:w-44"
+                                className="w-44"
                             />
                         </div>
                         <div className="relative">
-                            <ShortcutBadge shortcut="Alt + G" className="top-0 hidden md:block" />
+                            <ShortcutBadge shortcut="Alt + G" className="top-0" />
                             <KitTextField
                                 inputRef={groupNameRef}
                                 size="small"
@@ -563,15 +564,15 @@ export default function ProductManagementReport({ alertType }) {
                                 value={groupName}
                                 onChange={(e) => setGroupName(e.target.value)}
                                 placeholder="e.g. NESTLE, HUL-NON FOOD"
-                                className="w-full md:w-44"
+                                className="w-44"
                             />
                         </div>
-                        <div className="relative w-full min-w-0 md:w-60">
-                            <ShortcutBadge shortcut="Alt + B" className="top-0 hidden md:block" />
+                        <div className="relative w-60">
+                            <ShortcutBadge shortcut="Alt + B" className="top-0" />
                             <KitSelect
                                 ref={brandRef}
                                 label="Brand Name"
-                                placeholder="Brand Names"
+                                placeholder="Select Brand Names"
                                 size="small"
                                 placeholderFontSize={14}
                                 inputFontSize={14}
@@ -587,12 +588,12 @@ export default function ProductManagementReport({ alertType }) {
                                 }}
                             />
                         </div>
-                        <div className="relative w-full min-w-0 md:w-60">
-                            <ShortcutBadge shortcut="Alt + V" className="top-0 hidden md:block" />
+                        <div className="relative w-60">
+                            <ShortcutBadge shortcut="Alt + V" className="top-0" />
                             <KitSelect
                                 ref={vendorRef}
                                 label="Vendor Name"
-                                placeholder="Vendor Names"
+                                placeholder="Select Vendor Names"
                                 size="small"
                                 placeholderFontSize={14}
                                 inputFontSize={14}
@@ -610,12 +611,12 @@ export default function ProductManagementReport({ alertType }) {
                         </div>
                         {selectedItems.length > 0 && ["OVER_STOCK", "DEAD_STOCK"].includes(alertType) && (
                             <div className="relative">
-                                <ShortcutBadge shortcut="Shift + R" className="-top-5! hidden md:block" />
+                                <ShortcutBadge shortcut="Shift + R" className="-top-5!" />
                                 <KitButton
                                     ref={ReturnExportRef}
                                     size="small"
                                     variant="contained"
-                                    className="w-full md:w-auto"
+                                    className="w-auto"
                                     disabled={isReturnALoading || selectedItems.length === 0}
                                     isLoading={isReturnALoading}
                                     onClick={handleDownloadReturnPdf}
@@ -628,12 +629,12 @@ export default function ProductManagementReport({ alertType }) {
                         {selectedItems.length > 0 &&
                             ["NEGATIVE_STOCK", "OVER_STOCK", "DEAD_STOCK"].includes(alertType) && (
                                 <div className="relative">
-                                    <ShortcutBadge shortcut="Shift + D" className="-top-5! hidden md:block" />
+                                    <ShortcutBadge shortcut="Shift + D" className="-top-5!" />
                                     <KitButton
                                         ref={displayExportRef}
                                         size="small"
                                         variant="contained"
-                                        className="w-full md:w-auto"
+                                        className="w-auto"
                                         disabled={isDisplayLoading || selectedItems.length === 0}
                                         isLoading={isDisplayLoading}
                                         onClick={handleDownloadDisplayPDF}
@@ -644,12 +645,12 @@ export default function ProductManagementReport({ alertType }) {
                             )}
                         {alerts?.data?.length !== 0 && (
                             <div className="relative">
-                                <ShortcutBadge shortcut="Shift + E" className="-top-5! hidden md:block" />
+                                <ShortcutBadge shortcut="Shift + E" className="-top-5!" />
                                 <KitButton
                                     ref={exportRef}
                                     size="small"
                                     variant="contained"
-                                    className="w-full md:w-auto"
+                                    className="w-auto"
                                     disabled={exportProductLoading}
                                     isLoading={exportProductLoading}
                                     onClick={handleExport}
@@ -659,11 +660,11 @@ export default function ProductManagementReport({ alertType }) {
                             </div>
                         )}
                         <div className="relative">
-                            <ShortcutBadge shortcut="Alt + R" className="-top-5! hidden md:block" />
+                            <ShortcutBadge shortcut="Alt + R" className="-top-5" />
                             <IconButton
                                 ref={refreshRef}
                                 onClick={() => refreshAlerts()}
-                                className="w-full md:w-10.5! h-7.5! rounded-sm! min-w-fit! p-1! border! border-blue-600!"
+                                className="w-10.5! h-7.5! rounded-sm! min-w-fit! p-1! border! border-blue-600!"
                             >
                                 <KitIcon icon="tabler:refresh" className="text-xl! text-primary" />
                             </IconButton>
@@ -671,20 +672,20 @@ export default function ProductManagementReport({ alertType }) {
                     </div>
                 </Paper>
 
-                <Paper elevation={0} className={`inline-block rounded-lg p-3 md:p-4 ${summaryConfig.bgClass}`}>
-                    <div className="md:flex gap-6!">
+                <Paper elevation={0} className={`inline-block rounded-lg p-4 ${summaryConfig.bgClass}`}>
+                    <div className="flex gap-6">
                         <div className="flex items-center gap-2">
-                            <Typography className={`text-lg! md:text-[24px]! font-semibold! ${summaryConfig.textClass}`}>
+                            <Typography className={`text-[24px]! font-semibold! ${summaryConfig.textClass}`}>
                                 {alerts?.meta?.totalItems ?? 0}
                             </Typography>
-                            <Typography className="text-sm! md:text-base! ml-2 text-gray-500">Products</Typography>
+                            <Typography className="ml-2 text-gray-500">Products</Typography>
                         </div>
 
                         <div className="flex items-center gap-2">
-                            <Typography className={`text-lg! md:text-[24px]! font-semibold! ${summaryConfig.textClass}`}>
+                            <Typography className={`text-[24px]! font-semibold! ${summaryConfig.textClass}`}>
                                 {priceFormat(summaryValue)}
                             </Typography>
-                            <Typography className="text-sm! md:text-base! ml-2 text-gray-500">{summaryConfig.valueLabel}</Typography>
+                            <Typography className="ml-2 text-gray-500">{summaryConfig.valueLabel}</Typography>
                         </div>
                     </div>
                 </Paper>

@@ -18,7 +18,7 @@ import { purchaseOrderStatus } from "../../../../../kit/utils/status";
 import KitShow from "../../../../../kit/components/KitShow/KitShow";
 import KitButton from "../../../../../kit/components/KitButton/KitButton";
 
-export default function POStatusReport({ divider = true }) {
+export default function POStatusReport() {
     const itemCodeRef = useRef(null);
     const productRef = useRef(null);
     const groupNameRef = useRef(null);
@@ -442,7 +442,7 @@ export default function POStatusReport({ divider = true }) {
 
     return (
         <div>
-            {divider && <Divider className="mb-3!" />}
+            <Divider className="mb-3!" />
             <div className="flex flex-col gap-3 w-full min-w-0">
                 <KitHeader
                     title="PO Status Report"
@@ -453,9 +453,9 @@ export default function POStatusReport({ divider = true }) {
                 />
 
                 <Paper elevation={0} className="p-3 border border-gray-200 rounded-xl">
-                    <div className="grid grid-cols-2 items-end gap-x-2 gap-y-3 md:flex md:flex-wrap md:gap-y-7">
+                    <div className="flex flex-wrap items-end gap-x-3 gap-y-7">
                         <div className="relative">
-                            <ShortcutBadge shortcut="Alt + I" className="top-0 hidden md:block" />
+                            <ShortcutBadge shortcut="Alt + I" className="top-0" />
                             <KitTextField
                                 inputRef={productRef}
                                 size="small"
@@ -465,11 +465,11 @@ export default function POStatusReport({ divider = true }) {
                                 value={search}
                                 onChange={(e) => setSearch(e.target.value)}
                                 placeholder="PO ID"
-                                className="w-full md:w-44"
+                                className="w-44"
                             />
                         </div>
                         <div className="relative">
-                            <ShortcutBadge shortcut="Alt + P" className="top-0 hidden md:block" />
+                            <ShortcutBadge shortcut="Alt + P" className="top-0" />
                             <KitTextField
                                 inputRef={itemCodeRef}
                                 size="small"
@@ -479,11 +479,11 @@ export default function POStatusReport({ divider = true }) {
                                 value={itemName}
                                 onChange={(e) => setItemName(e.target.value)}
                                 placeholder="Product Name"
-                                className="w-full md:w-44"
+                                className="w-44"
                             />
                         </div>
                         <div className="relative">
-                            <ShortcutBadge shortcut="Alt + C" className="top-0 hidden md:block" />
+                            <ShortcutBadge shortcut="Alt + C" className="top-0" />
                             <KitTextField
                                 inputRef={groupNameRef}
                                 size="small"
@@ -493,15 +493,15 @@ export default function POStatusReport({ divider = true }) {
                                 value={itemCode}
                                 onChange={(e) => setItemCode(e.target.value)}
                                 placeholder="Product Code"
-                                className="w-full md:w-44"
+                                className="w-44"
                             />
                         </div>
-                        <div className="relative w-full min-w-0 md:w-60">
-                            <ShortcutBadge shortcut="Alt + B" className="top-0 hidden md:block" />
+                        <div className="relative w-60">
+                            <ShortcutBadge shortcut="Alt + B" className="top-0" />
                             <KitSelect
                                 ref={brandRef}
                                 label="Brand Name"
-                                placeholder="Brand Names"
+                                placeholder="Select Brand Names"
                                 size="small"
                                 placeholderFontSize={14}
                                 inputFontSize={14}
@@ -517,12 +517,12 @@ export default function POStatusReport({ divider = true }) {
                                 }}
                             />
                         </div>
-                        <div className="relative w-full min-w-0 md:w-60">
-                            <ShortcutBadge shortcut="Alt + V" className="top-0 hidden md:block" />
+                        <div className="relative w-60">
+                            <ShortcutBadge shortcut="Alt + V" className="top-0" />
                             <KitSelect
                                 ref={vendorRef}
                                 label="Vendor Name"
-                                placeholder="Vendor Names"
+                                placeholder="Select Vendor Names"
                                 size="small"
                                 placeholderFontSize={14}
                                 inputFontSize={14}
@@ -537,12 +537,12 @@ export default function POStatusReport({ divider = true }) {
                         </div>
                         <KitShow show={selectedItems.length > 0}>
                             <div className="relative">
-                                <ShortcutBadge shortcut="Alt + D" className="-top-5! hidden md:block" />
+                                <ShortcutBadge shortcut="Alt + D" className="-top-5" />
                                 <KitButton
                                     ref={downloadRef}
                                     size="small"
                                     variant="contained"
-                                    className="w-full md:w-auto"
+                                    className="w-auto"
                                     onClick={() => handleDownloadPdf()}
                                 >
                                     Download Report
@@ -550,11 +550,11 @@ export default function POStatusReport({ divider = true }) {
                             </div>
                         </KitShow>
                         <div className="relative">
-                            <ShortcutBadge shortcut="Alt + R" className="-top-5! hidden md:block" />
+                            <ShortcutBadge shortcut="Alt + R" className="-top-5" />
                             <IconButton
                                 ref={refreshRef}
                                 onClick={() => refreshPurchaseOrderList()}
-                                className="w-full md:w-10.5! h-7.5! rounded-sm! min-w-fit! p-1! border! border-blue-600!"
+                                className="w-10.5! h-7.5! rounded-sm! min-w-fit! p-1! border! border-blue-600!"
                             >
                                 <KitIcon icon="tabler:refresh" className="text-xl! text-primary" />
                             </IconButton>

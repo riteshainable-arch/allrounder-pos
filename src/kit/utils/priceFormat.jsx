@@ -62,28 +62,3 @@ export const priceFormat = (value, options = {}) => {
 
     return `${formattedValue}/-`;
 };
-
-export const formatQty = (value) => {
-    const number = Number(value);
-
-    return Number.isFinite(number)
-        ? roundToDecimals(number, 3).toLocaleString("en-IN", {
-              maximumFractionDigits: 3,
-          })
-        : "—";
-};
-
-export function formatPrice(num) {
-  const value = Number(num);
-
-  return new Intl.NumberFormat("en-IN").format(Number.isFinite(value) ? value : 0);
-}
-
-export function formatAmount(num) {
-  const value = Number(num);
-
-  return new Intl.NumberFormat("en-IN", {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  }).format(Number.isFinite(value) ? value : 0);
-}

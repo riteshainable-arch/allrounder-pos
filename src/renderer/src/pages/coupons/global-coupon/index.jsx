@@ -14,8 +14,9 @@ import {
     useGetAllGlobalCouponList,
     useUpdateGlobalCouponStatus,
 } from "../../../../../kit/hooks/data/globalCoupons";
-import { formatPrice } from "../../../../../kit/utils/priceFormat";
+import { priceFormat } from "../../../../../kit/utils/priceFormat";
 import AddUpdateGlobalCouponModal from "../../../components/Coupons/GlobalCoupons/AddUpdateGlobalCouponModal";
+import { initialLettersCapitalize } from "../../../../../kit/utils/capital";
 
 export default function GlobalCoupon() {
     const searchRef = useRef(null);
@@ -35,7 +36,7 @@ export default function GlobalCoupon() {
     const { globalCouponList, isGlobalCouponListLoading, globalCouponListError, refreshpGlobalCouponList } =
         useGetAllGlobalCouponList({
             page,
-            size: pageSize,
+            limit: pageSize,
             search: search,
         });
     const { deleteRecord, isDeleting } = useDeleteGlobalCoupon(String(selectedItem?.id));
@@ -43,7 +44,7 @@ export default function GlobalCoupon() {
         String(selectedItem?.id)
     );
 
-    const couponRows = globalCouponList?.data?.items ?? [];
+    const couponRows = globalCouponList?.data?.coupons ?? [];
 
     const toggleAddUpdateCGSTModal = () => setIsAddUpdateModalOpen(!isAddUpdateModalOpen);
     const toggleDeleteDialog = () => setShowDeleteDialog(!showDeleteDialog);
@@ -99,24 +100,20 @@ export default function GlobalCoupon() {
 
     const columns = [
         {
-            field: "schemeCode",
-            headerName: "Scheme Code",
-            minWidth: 150,
-            flex: 0.8,
-            renderCell: (params) => (
-                <Typography variant="body2" className="truncate" title={params.row.schemeCode ?? "-"}>
-                    {params.row.schemeCode || "-"}
-                </Typography>
-            ),
+            field: "code",
+            headerName: "Coupon Code",
+            minWidth: 100,
+            flex: 0.7,
+            renderCell: (params) => <Typography variant="body2">{params.row.code ?? "-"}</Typography>,
         },
         {
-            field: "schemeName",
-            headerName: "Scheme Name",
+            field: "name",
+            headerName: "Coupon Name",
             minWidth: 200,
             flex: 1.2,
             renderCell: (params) => (
-                <Typography variant="body2" className="truncate" title={params.row.schemeName ?? ""}>
-                    {params.row.schemeName || "-"}
+                <Typography variant="body2" className="truncate" title={params.row.name ?? ""}>
+                    {params.row.name ?? "-"}
                 </Typography>
             ),
         },
@@ -127,22 +124,7 @@ export default function GlobalCoupon() {
             flex: 1.2,
             renderCell: (params) => (
                 <Typography variant="body2" className="truncate" title={params.row.description ?? ""}>
-                    {params.row.description || "-"}
-                </Typography>
-            ),
-        },
-        {
-            field: "schemeType",
-            headerName: "Scheme Type",
-            minWidth: 150,
-            flex: 1,
-            renderCell: (params) => (
-                <Typography variant="body2">
-                    {params.row.schemeType === "ITEM_PRICE"
-                        ? "Item Price"
-                        : params.row.schemeType === "BILL_DISCOUNT"
-                          ? "Bill Discount"
-                          : "-"}
+                    {params.row.description ?? "-"}
                 </Typography>
             ),
         },
@@ -152,56 +134,61 @@ export default function GlobalCoupon() {
             minWidth: 150,
             flex: 1,
             renderCell: (params) => (
-                <Typography variant="body2">{params.row.discountType?.replaceAll("_", " ") || "-"}</Typography>
+                <Typography variant="body2">{params.row.discountType?.replaceAll("_", " ") ?? "-"}</Typography>
             ),
         },
         {
             field: "minBillAmount",
             headerName: "Min Bill Amount",
-            minWidth: 150,
-            flex: 0.9,
+            minWidth: 130,
+            flex: 1,
             renderCell: (params) => (
-                <Typography variant="body2">₹{formatPrice(params.row.minBillAmount ?? 0)}</Typography>
+                <Typography variant="body1" className="text-sm!">
+                    {priceFormat(params.row.minBillAmount)}
+                </Typography>
             ),
         },
         {
-            field: "reward",
-            headerName: "Reward",
-            minWidth: 180,
+            field: "maxDiscountAmount",
+            headerName: "Max Discount Amount",
+            minWidth: 130,
             flex: 1,
-            sortable: false,
+            renderCell: (params) => (
+                <Typography variant="body1" className="text-sm!">
+                    {priceFormat(params.row.maxDiscountAmount)}
+                </Typography>
+            ),
+        },
+        {
+            field: "discountValue",
+            headerName: "Discount",
+            minWidth: 100,
+            flex: 0.8,
             renderCell: (params) => {
-                const { schemeType, discountType, discountValue, maxDiscountAmount } = params.row;
+                const { discountType, discountValue } = params.row;
 
                 if (discountValue == null) {
                     return <Typography variant="body2">-</Typography>;
                 }
 
-                if (discountType === "PRICE") {
-                    return <Typography variant="body2">₹{formatPrice(discountValue)} per item</Typography>;
-                }
-
-                if (discountType === "PERCENTAGE") {
-                    return (
-                        <Typography variant="body2">
-                            {discountValue}% off
-                            {schemeType === "BILL_DISCOUNT" && maxDiscountAmount != null
-                                ? ` (max ₹${formatPrice(maxDiscountAmount)})`
-                                : ""}
-                        </Typography>
-                    );
-                }
-
-                return <Typography variant="body2">₹{formatPrice(discountValue)} off</Typography>;
+                return (
+                    <Typography variant="body2">
+                        {discountType === "PERCENTAGE"
+                            ? `${discountValue}%`
+                            : discountType === "FLAT"
+                              ? `₹${discountValue}`
+                              : "-"}
+                    </Typography>
+                );
             },
         },
         {
             field: "validFrom",
             headerName: "Valid From",
-            minWidth: 140,
-            flex: 0.8,
+            minWidth: 150,
+            flex: 1,
             renderCell: (params) => (
-                <Typography variant="body2">
+                <Typography variant="body1" className="text-sm!">
                     {params.row.validFrom ? format(new Date(params.row.validFrom), "dd MMM yyyy") : "-"}
                 </Typography>
             ),
@@ -209,31 +196,40 @@ export default function GlobalCoupon() {
         {
             field: "validTill",
             headerName: "Valid Till",
-            minWidth: 140,
-            flex: 0.8,
+            minWidth: 150,
+            flex: 1,
             renderCell: (params) => (
-                <Typography variant="body2">
+                <Typography variant="body1" className="text-sm!">
                     {params.row.validTill ? format(new Date(params.row.validTill), "dd MMM yyyy") : "-"}
                 </Typography>
             ),
         },
         {
-            field: "isActive",
+            field: "status",
             headerName: "Status",
-            minWidth: 120,
-            flex: 0.7,
-            renderCell: (params) => (
-                <Chip
-                    size="small"
-                    label={params.row.isActive ? "ACTIVE" : "INACTIVE"}
-                    color={params.row.isActive ? "success" : "error"}
-                    variant="outlined"
-                    className="text-xs! p-0!"
-                />
-            ),
+            minWidth: 130,
+            flex: 0.8,
+            renderCell: (params) => {
+                const statusColors = {
+                    ACTIVE: "success",
+                    INACTIVE: "error",
+                    EXPIRED: "error",
+                    UPCOMING: "warning",
+                    EXHAUSTED: "secondary",
+                };
+
+                return (
+                    <Chip
+                        size="small"
+                        label={initialLettersCapitalize(params.row.status)}
+                        color={statusColors[params.row.status] || "default"}
+                        variant="outlined"
+                    />
+                );
+            },
         },
         {
-            field: "active",
+            field: "isActive",
             headerName: "Active",
             minWidth: 100,
             flex: 0.6,
@@ -264,7 +260,11 @@ export default function GlobalCoupon() {
             disableColumnMenu: true,
             headerClassName: "sticky-column",
             cellClassName: "sticky-column",
-            renderHeader: () => <Typography variant="body2">Actions</Typography>,
+            renderHeader: () => (
+                <div className="flex flex-col gap-1 text-start">
+                    <span>Actions</span>
+                </div>
+            ),
             renderCell: (params) => (
                 <div className="flex gap-2">
                     <KitButton
@@ -402,7 +402,7 @@ export default function GlobalCoupon() {
                         title="Global Coupons"
                         subtitle="View and manage coupon details and discounts"
                         icon="tabler:file-invoice"
-                        count={globalCouponList?.data?.totalItems ?? 0}
+                        count={globalCouponList?.data?.pagination?.totalItems ?? 0}
                         countLabel="records"
                     />
 
@@ -451,7 +451,7 @@ export default function GlobalCoupon() {
                     columns={columns}
                     rows={couponRows}
                     getRowId={(row) => row.id}
-                    rowCount={globalCouponList?.data?.totalItems}
+                    rowCount={globalCouponList?.data?.pagination?.totalItems}
                     pageSize={pageSize}
                     setPage={setPage}
                     setPageSize={setPageSize}
@@ -501,11 +501,11 @@ export default function GlobalCoupon() {
                 <KitDeleteDialog
                     isOpen={isStatusModalOpen}
                     onClose={toggleStatusModal}
-                    title={selectedItem?.isActive ? "Suspend Global Coupon Scheme?" : "Activate Global Coupon Scheme?"}
+                    title={selectedItem?.isActive ? "Suspend Coupon?" : "Activate Coupon?"}
                     subTitle={
                         selectedItem?.isActive
-                            ? "Are you sure you want to suspend this global coupon scheme? Customers will no longer be able to use it."
-                            : "Are you sure you want to activate this global coupon scheme? Customers will be able to use it according to its validity and eligibility rules."
+                            ? "Are you sure you want to suspend this coupon? Customers will no longer be able to use it."
+                            : "Are you sure you want to activate this coupon? Customers will be able to use it according to its validity and eligibility rules."
                     }
                     onDelete={onStatus}
                     isBtnLoading={isUpdatingGlobalCouponStatus}

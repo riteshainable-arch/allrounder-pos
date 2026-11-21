@@ -14,7 +14,7 @@ import { format } from "date-fns";
 
 export const DEFAULT_MAX_WOS = 8;
 
-export default function MarkdownReport({ divider = true }) {
+export default function MarkdownReport() {
     const searchRef = useRef(null);
     const refreshRef = useRef(null);
     const downloadRef = useRef(null);
@@ -242,9 +242,9 @@ export default function MarkdownReport({ divider = true }) {
 
     return (
         <div>
-            {divider && <Divider className="mb-5!" />}
-            <div className="flex w-full min-w-0 flex-col gap-3">
-                <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+            <Divider className="mb-5!" />
+            <div className="flex flex-col gap-3 w-full min-w-0">
+                <div className="flex justify-between">
                     <KitHeader
                         title="Markdown Report"
                         subtitle="View and analyze markdown pricing and discount details"
@@ -253,27 +253,27 @@ export default function MarkdownReport({ divider = true }) {
                         countLabel="records"
                     />
 
-                    <div className="grid grid-cols-2 items-end gap-x-2 gap-y-3 md:flex md:flex-wrap md:gap-y-7">
+                    <div className="flex items-center gap-2">
                         <div className="relative">
-                            <ShortcutBadge shortcut="Alt + O" className="-top-5! hidden md:block" />
+                            <ShortcutBadge shortcut="Alt + O" className="-top-5!" />
                             <KitDebouncedInput
                                 ref={searchRef}
                                 value={search}
                                 onChange={(value) => setSearch(String(value))}
                                 placeholder="Product Name / Product Code"
-                                className="w-full md:w-52"
+                                className="w-52"
                                 size="small"
                             />
                         </div>
 
                         <KitShow show={selectedItems.length > 0}>
                             <div className="relative">
-                                <ShortcutBadge shortcut="Alt + D" className="-top-5! hidden md:block" />
+                                <ShortcutBadge shortcut="Alt + D" className="-top-5" />
                                 <KitButton
                                     ref={downloadRef}
                                     size="small"
                                     variant="contained"
-                                    className="w-full! md:w-auto!"
+                                    className="w-auto"
                                     onClick={() => handleDownloadPdf()}
                                 >
                                     Download Report
@@ -282,12 +282,12 @@ export default function MarkdownReport({ divider = true }) {
                         </KitShow>
 
                         <div className="relative">
-                            <ShortcutBadge shortcut="Alt + R" className="-top-5! hidden md:block" />
+                            <ShortcutBadge shortcut="Alt + R" className="-top-5" />
                             <KitButton
                                 ref={refreshRef}
                                 size="small"
                                 variant="contained"
-                                className="w-full! md:w-auto!"
+                                className="w-auto"
                                 onClick={() => refreshMarkdownReport()}
                             >
                                 Refresh

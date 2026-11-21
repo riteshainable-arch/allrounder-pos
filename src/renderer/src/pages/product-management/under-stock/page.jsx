@@ -2,13 +2,7 @@
 
 import React from "react";
 import ProductManagementReport from "../../../components/ProductManagementReport/ProductManagementReport";
-import { Divider } from "@mui/material";
 
 export default function UnderStock() {
-    return (
-        <>
-            <Divider className="mb-3!" />
-            <ProductManagementReport alertType="UNDER_STOCK" />
-        </>
-    );
+    return <ProductManagementReport alertType="UNDER_STOCK" />;
 }

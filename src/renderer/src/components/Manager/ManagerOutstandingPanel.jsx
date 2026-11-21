@@ -62,10 +62,9 @@ export default function ManagerOutstandingPanel() {
         ...(startDate && { startDate: startDate }),
         ...(endDate && { endDate: endDate }),
         ...(selectedCashierId && { cashierId: selectedCashierId }),
-    };
+    }
 
-    const { outstandingSummary, isOutstandingSummaryLoading, refreshOutstandingSummary } =
-        useOutstandingSummary(queryParams);
+    const { outstandingSummary, isOutstandingSummaryLoading, refreshOutstandingSummary } = useOutstandingSummary(queryParams);
     const { usersDropdown, isUsersDropdownLoading } = useUsersDropdown({ role: "cashier" });
     const { settleCashier } = useSettleCashier();
 
@@ -113,9 +112,7 @@ export default function ManagerOutstandingPanel() {
                 if (!keyword) return true;
                 return (
                     String(row.cashierId || "").includes(keyword) ||
-                    String(row.cashierName || "")
-                        .toLowerCase()
-                        .includes(keyword) ||
+                    String(row.cashierName || "").toLowerCase().includes(keyword) ||
                     String(row.date || "").includes(keyword)
                 );
             })
@@ -137,61 +134,55 @@ export default function ManagerOutstandingPanel() {
         }));
     }, []);
 
-    const getSettleDates = useCallback(
-        (row) => {
-            if (row.date) {
-                return { startDate: row.date, endDate: row.date };
-            }
-            return {
-                startDate: startDate || row.oldestUnsettledDate || today,
-                endDate: endDate || row.latestUnsettledDate || today,
-            };
-        },
-        [endDate, startDate, today]
-    );
+    const getSettleDates = useCallback((row) => {
+        if (row.date) {
+            return { startDate: row.date, endDate: row.date };
+        }
+        return {
+            startDate: startDate || row.oldestUnsettledDate || today,
+            endDate: endDate || row.latestUnsettledDate || today,
+        };
+    }, [endDate, startDate, today]);
 
-    const handleCollectRow = useCallback(
-        async (row) => {
-            if (!row.cashierId) {
-                toast.warning("Select a cashier row to collect.");
-                return;
-            }
+    const handleCollectRow = useCallback(async (row) => {
+        if (!row.cashierId) {
+            toast.warning("Select a cashier row to collect.");
+            return;
+        }
 
-            const amount = Number(row.draftReceived || 0);
-            if (amount <= 0) {
-                toast.warning("Enter the amount to collect.");
-                return;
-            }
+        const amount = Number(row.draftReceived || 0);
+        if (amount <= 0) {
+            toast.warning("Enter the amount to collect.");
+            return;
+        }
 
-            const dates = getSettleDates(row);
-            setSettlingRowKey(row.rowKey);
+        const dates = getSettleDates(row);
+        setSettlingRowKey(row.rowKey);
 
-            try {
-                await settleCashier({
-                    cashierId: row.cashierId,
-                    receivedAmount: amount,
-                    startDate: dates.startDate,
-                    endDate: dates.endDate,
-                    storeId,
-                });
+        try {
+            await settleCashier({
+                cashierId: row.cashierId,
+                receivedAmount: amount,
+                startDate: dates.startDate,
+                endDate: dates.endDate,
+                storeId,
+            });
 
-                toast.success(`Collected ${priceFormat(amount)} from ${row.cashierName || "cashier"}.`);
+            toast.success(`Collected ${priceFormat(amount)} from ${row.cashierName || "cashier"}.`);
 
-                setDraftAmounts((prev) => {
-                    const next = { ...prev };
-                    delete next[row.rowKey];
-                    return next;
-                });
+            setDraftAmounts((prev) => {
+                const next = { ...prev };
+                delete next[row.rowKey];
+                return next;
+            });
 
-                await refreshOutstandingSummary();
-            } catch (error) {
-                toast.error(error?.message || "Unable to collect amount.");
-            } finally {
-                setSettlingRowKey(null);
-            }
-        },
-        [getSettleDates, refreshOutstandingSummary, settleCashier, storeId]
-    );
+            await refreshOutstandingSummary();
+        } catch (error) {
+            toast.error(error?.message || "Unable to collect amount.");
+        } finally {
+            setSettlingRowKey(null);
+        }
+    }, [getSettleDates, refreshOutstandingSummary, settleCashier, storeId]);
 
     const summaryCards = useMemo(
         () => [
@@ -228,8 +219,12 @@ export default function ManagerOutstandingPanel() {
                 field: "date",
                 headerName: "Date",
                 minWidth: 110,
-                renderCell: ({ row }) => <Typography className="text-sm!">{row.date || "-"}</Typography>,
-                renderSummary: () => <Typography className="text-sm! font-semibold!">Total</Typography>,
+                renderCell: ({ row }) => (
+                    <Typography className="text-sm!">{row.date || "-"}</Typography>
+                ),
+                renderSummary: () => (
+                    <Typography className="text-sm! font-semibold!">Total</Typography>
+                ),
             });
         }
 
@@ -239,7 +234,10 @@ export default function ManagerOutstandingPanel() {
                 headerName: "Cashier",
                 minWidth: 130,
                 renderCell: ({ row }) => (
-                    <EllipsisText className="text-sm!" text={row.cashierName || row.cashier?.displayName || "-"} />
+                    <EllipsisText
+                        className="text-sm!"
+                        text={row.cashierName || row.cashier?.displayName || "-"}
+                    />
                 ),
                 renderSummary: () => "",
             });
@@ -251,7 +249,9 @@ export default function ManagerOutstandingPanel() {
                 field: "totalBills",
                 headerName: "Bills",
                 minWidth: 80,
-                renderCell: ({ row }) => <Typography className="text-sm!">{row.totalBills ?? 0}</Typography>,
+                renderCell: ({ row }) => (
+                    <Typography className="text-sm!">{row.totalBills ?? 0}</Typography>
+                ),
                 renderSummary: ({ row }) => (
                     <Typography className="text-sm! font-semibold!">{row.totalBills ?? 0}</Typography>
                 ),
@@ -275,14 +275,18 @@ export default function ManagerOutstandingPanel() {
                 field: "oldestUnsettledDate",
                 headerName: "Oldest",
                 minWidth: 110,
-                renderCell: ({ row }) => <Typography className="text-sm!">{row.oldestUnsettledDate || "-"}</Typography>,
+                renderCell: ({ row }) => (
+                    <Typography className="text-sm!">{row.oldestUnsettledDate || "-"}</Typography>
+                ),
                 renderSummary: () => "",
             },
             {
                 field: "latestUnsettledDate",
                 headerName: "Latest",
                 minWidth: 110,
-                renderCell: ({ row }) => <Typography className="text-sm!">{row.latestUnsettledDate || "-"}</Typography>,
+                renderCell: ({ row }) => (
+                    <Typography className="text-sm!">{row.latestUnsettledDate || "-"}</Typography>
+                ),
                 renderSummary: () => "",
             },
             {
@@ -329,7 +333,11 @@ export default function ManagerOutstandingPanel() {
                             isLoading={isRowSettling}
                             disabled={Boolean(settlingRowKey && !isRowSettling)}
                             onClick={() => handleCollectRow(row)}
-                            startIcon={!isRowSettling ? <KitIcon icon="tabler:cash" className="text-sm!" /> : undefined}
+                            startIcon={
+                                !isRowSettling ? (
+                                    <KitIcon icon="tabler:cash" className="text-sm!" />
+                                ) : undefined
+                            }
                         >
                             Collect
                         </KitButton>
@@ -341,13 +349,12 @@ export default function ManagerOutstandingPanel() {
     }, [groupBy, handleCollectRow, handleDraftChange, settlingRowKey]);
 
     const cashierIds = new Set();
-    gridRows.forEach((entry) => {
-        Object.keys(entry.byCashier || {}).forEach((id) => cashierIds.add(id));
-    });
+    gridRows.forEach((entry) => { Object.keys(entry.byCashier || {}).forEach((id) => cashierIds.add(id)) });
 
     const gridDynamicColumns = Array.from(cashierIds).map((cashierId) => {
         const sample = gridRows.find((entry) => entry.byCashier?.[cashierId]);
-        const label = sample?.byCashier?.[cashierId]?.cashierName || `Cashier ${cashierId}`;
+        const label =
+            sample?.byCashier?.[cashierId]?.cashierName || `Cashier ${cashierId}`;
 
         return {
             field: `cashier_${cashierId}`,
@@ -356,7 +363,9 @@ export default function ManagerOutstandingPanel() {
             flex: 1,
             renderCell: (params) => (
                 <Typography className="text-sm!">
-                    {priceFormat(params.row.byCashier?.[cashierId]?.remainingAmount || 0)}
+                    {priceFormat(
+                        params.row.byCashier?.[cashierId]?.remainingAmount || 0
+                    )}
                 </Typography>
             ),
         };
@@ -364,11 +373,15 @@ export default function ManagerOutstandingPanel() {
 
     const gridColumns = [
         {
-            field: "date",
-            headerName: "Date",
+            field: 'date',
+            headerName: 'Date',
             minWidth: 150,
             flex: 1,
-            renderCell: (params) => <Typography className="text-sm!">{params.row.date ?? "-"}</Typography>,
+            renderCell: (params) => (
+                <Typography className="text-sm!">
+                    {params.row.date ?? "-"}
+                </Typography>
+            )
         },
         ...gridDynamicColumns,
         {
@@ -376,26 +389,34 @@ export default function ManagerOutstandingPanel() {
             headerName: "Day Total",
             flex: 1,
             minWidth: 150,
-            renderCell: (params) => <Typography className="text-sm!">{priceFormat(params?.row?.total)}</Typography>,
+            renderCell: (params) => (
+                <Typography className="text-sm!">
+                    {priceFormat(params?.row?.total)}
+                </Typography>
+            ),
         },
     ];
 
     const cashierColumns = [
         {
-            field: "displayName",
-            headerName: "Cashier",
+            field: 'displayName',
+            headerName: 'Cashier',
             minWidth: 150,
             flex: 1,
             renderCell: (params) => (
-                <EllipsisText className="text-sm!" text={params.row?.cashier?.displayName || "-"} />
-            ),
+                <EllipsisText className='text-sm!' text={params.row?.cashier?.displayName || "-"} />
+            )
         },
         {
-            field: "totalBills",
-            headerName: "Bills",
+            field: 'totalBills',
+            headerName: 'Bills',
             minWidth: 150,
             flex: 1,
-            renderCell: (params) => <Typography className="text-sm!">{params.row.totalBills ?? 0}</Typography>,
+            renderCell: (params) => (
+                <Typography className="text-sm!">
+                    {params.row.totalBills ?? 0}
+                </Typography>
+            )
         },
         {
             field: "totalOutstandingAmount",
@@ -414,7 +435,9 @@ export default function ManagerOutstandingPanel() {
             flex: 1,
             minWidth: 170,
             renderCell: (params) => (
-                <Typography className="text-sm!">{params.row.oldestUnsettledDate ?? "-"}</Typography>
+                <Typography className="text-sm!">
+                    {params.row.oldestUnsettledDate ?? '-'}
+                </Typography>
             ),
         },
         {
@@ -423,7 +446,9 @@ export default function ManagerOutstandingPanel() {
             flex: 1,
             minWidth: 170,
             renderCell: (params) => (
-                <Typography className="text-sm!">{params.row.latestUnsettledDate ?? "-"}</Typography>
+                <Typography className="text-sm!">
+                    {params.row.latestUnsettledDate ?? '-'}
+                </Typography>
             ),
         },
     ];
@@ -534,9 +559,9 @@ export default function ManagerOutstandingPanel() {
                 />
 
                 <Paper elevation={0} className="p-3 border border-gray-200 rounded-xl bg-white">
-                    <div className="grid grid-cols-2 items-end gap-x-2 gap-y-3 md:flex md:flex-wrap md:gap-y-7">
-                        <div className="relative w-full min-w-0 md:w-48">
-                            <ShortcutBadge shortcut="Alt + G" className="top-0 hidden md:block" />
+                    <div className="flex flex-wrap items-end gap-3">
+                        <div className="w-48 relative">
+                            <ShortcutBadge shortcut="Alt + G" className="top-0!" />
                             <KitSelect
                                 ref={groupRef}
                                 label="Group By"
@@ -545,15 +570,12 @@ export default function ManagerOutstandingPanel() {
                                 placeholderFontSize={14}
                                 inputFontSize={14}
                                 options={GROUP_BY_OPTIONS}
-                                value={
-                                    GROUP_BY_OPTIONS.find((o) => String(o.value) === String(groupBy)) ??
-                                    GROUP_BY_OPTIONS[0]
-                                }
+                                value={GROUP_BY_OPTIONS.find((o) => String(o.value) === String(groupBy)) ?? GROUP_BY_OPTIONS[0]}
                                 onChange={(option) => setGroupBy(option?.value || "cashier")}
                             />
                         </div>
-                        <div className="relative w-full min-w-0 md:w-52">
-                            <ShortcutBadge shortcut="Alt + C" className="top-0 hidden md:block" />
+                        <div className="w-52 relative">
+                            <ShortcutBadge shortcut="Alt + C" className="top-0!" />
                             <KitSelect
                                 ref={cashierRef}
                                 label="Cashier"
@@ -563,16 +585,12 @@ export default function ManagerOutstandingPanel() {
                                 inputFontSize={14}
                                 options={cashierOptions}
                                 isDisabled={isUsersDropdownLoading}
-                                value={
-                                    cashierOptions.find(
-                                        (option) => String(option.value) === String(selectedCashierId)
-                                    ) ?? cashierOptions[0]
-                                }
+                                value={cashierOptions.find((option) => String(option.value) === String(selectedCashierId)) ?? cashierOptions[0]}
                                 onChange={(option) => setSelectedCashierId(option?.value ?? "")}
                             />
                         </div>
                         <div className="relative">
-                            <ShortcutBadge shortcut="Alt + S" className="top-0 hidden md:block" />
+                            <ShortcutBadge shortcut="Alt + S" className="top-0!" />
                             <KitTextField
                                 inputRef={startDateRef}
                                 size="small"
@@ -581,11 +599,11 @@ export default function ManagerOutstandingPanel() {
                                 label="Start Date"
                                 value={startDate}
                                 onChange={(e) => setStartDate(e.target.value)}
-                                className="w-full md:w-44"
+                                className="w-44"
                             />
                         </div>
                         <div className="relative">
-                            <ShortcutBadge shortcut="Alt + E" className="top-0 hidden md:block" />
+                            <ShortcutBadge shortcut="Alt + E" className="top-0!" />
                             <KitTextField
                                 inputRef={endDateRef}
                                 size="small"
@@ -594,24 +612,24 @@ export default function ManagerOutstandingPanel() {
                                 label="End Date"
                                 value={endDate}
                                 onChange={(e) => setEndDate(e.target.value)}
-                                className="w-full md:w-44"
+                                className="w-44"
                             />
                         </div>
                         <div className="relative">
-                            <ShortcutBadge shortcut="Alt + O" className="-top-5! hidden md:block" />
+                            <ShortcutBadge shortcut="Alt + O" className="-top-5!" />
                             <KitDebouncedInput
                                 ref={searchRef}
                                 value={search}
                                 onChange={(value) => setSearch(String(value))}
                                 placeholder="Search..."
-                                className="w-full md:w-52"
+                                className="w-52"
                                 size="small"
                             />
                         </div>
                     </div>
                 </Paper>
 
-                <Grid container spacing={{ xs: 1, md: 2 }}>
+                <Grid container spacing={2}>
                     {summaryCards.map((card) => (
                         <Grid size={{ xs: 12, sm: 4 }} key={card.title}>
                             <Paper elevation={0} className="p-3 border border-gray-200 rounded-xl">
@@ -627,11 +645,13 @@ export default function ManagerOutstandingPanel() {
 
                 {!tableRows.length && !isOutstandingSummaryLoading ? (
                     <Paper elevation={0} className="p-8 border border-gray-200 rounded-xl text-center">
-                        <Typography className="text-third-500">No outstanding amounts for selected filters.</Typography>
+                        <Typography className="text-third-500">
+                            No outstanding amounts for selected filters.
+                        </Typography>
                     </Paper>
                 ) : (
                     <div className="w-full min-w-0 overflow-hidden rounded-sm border border-gray-200">
-                        <div className="px-4 py-3">
+                        <div className="px-4 py-3 border-b">
                             <Typography className="font-semibold!">Outstanding Details</Typography>
                         </div>
                         <Box
@@ -652,7 +672,9 @@ export default function ManagerOutstandingPanel() {
                                 paginationMode="client"
                                 summaryRow={totals.rowCount != null ? totals : null}
                                 getRowClassName={(params) =>
-                                    params.indexRelativeToCurrentPage === activeRowIndex ? "active-row" : ""
+                                    params.indexRelativeToCurrentPage === activeRowIndex
+                                        ? "active-row"
+                                        : ""
                                 }
                             />
                         </Box>
@@ -661,7 +683,7 @@ export default function ManagerOutstandingPanel() {
 
                 {gridRows.length > 0 && (groupBy === "date" || groupBy === "cashier-date") && (
                     <div className="w-full min-w-0 overflow-hidden rounded-sm border border-gray-200">
-                        <div className="px-4 py-3">
+                        <div className="px-4 py-3 border-b">
                             <Typography className="font-semibold!">Daily Grid</Typography>
                             <Typography className="text-sm! text-third-500">
                                 Outstanding amount per cashier per day
@@ -679,7 +701,7 @@ export default function ManagerOutstandingPanel() {
 
                 {cashierRollup.length > 0 && groupBy !== "cashier" && (
                     <div className="w-full min-w-0 overflow-hidden rounded-sm border border-gray-200">
-                        <div className="px-4 py-3">
+                        <div className="px-4 py-3 border-b">
                             <Typography className="font-semibold!">Cashier Rollup</Typography>
                         </div>
                         <KitMuiTable

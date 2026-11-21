@@ -86,10 +86,9 @@ export default function ManagerAdvanceSlipsPanel() {
         ...(view === "pending" && { assignedToMe: true }),
         ...(view === "pending" && { status: "pending" }),
         ...(view !== "pending" && { status: "approved,rejected,cancelled" }),
-    };
+    }
 
-    const { advanceSlips, isAdvanceSlipsLoading, advanceSlipsError, refreshAdvanceSlips } =
-        useAdvanceSlips(queryParams);
+    const { advanceSlips, isAdvanceSlipsLoading, advanceSlipsError, refreshAdvanceSlips } = useAdvanceSlips(queryParams);
     const { usersDropdown } = useUsersDropdown({ role: "cashier" });
     const { approveAdvanceSlip, isApprovingAdvanceSlip } = useApproveAdvanceSlip();
     const { rejectAdvanceSlip, isRejectingAdvanceSlip } = useRejectAdvanceSlip();
@@ -166,77 +165,77 @@ export default function ManagerAdvanceSlipsPanel() {
 
     const columns = [
         {
-            field: "slipNumber",
-            headerName: "Slip No",
+            field: 'slipNumber',
+            headerName: 'Slip No',
             minWidth: 180,
             flex: 1,
             renderCell: (params) => (
-                <Typography variant="body1" className="text-sm!">
+                <Typography variant='body1' className="text-sm!">
                     {params?.row?.slipNumber ?? "-"}
                 </Typography>
-            ),
+            )
         },
         {
-            field: "slipDate",
-            headerName: "Date",
+            field: 'slipDate',
+            headerName: 'Date',
             minWidth: 150,
             flex: 1,
             renderCell: (params) => (
-                <Typography variant="body1" className="text-sm!">
+                <Typography variant='body1' className="text-sm!">
                     {params?.row?.slipDate ?? "-"}
                 </Typography>
-            ),
+            )
         },
         {
-            field: "timeOfDay",
-            headerName: "Time",
+            field: 'timeOfDay',
+            headerName: 'Time',
             minWidth: 150,
             flex: 1,
             renderCell: (params) => (
-                <Typography variant="body1" className="text-sm!">
-                    {params.row.timeOfDay ?? "-"}
+                <Typography variant='body1' className="text-sm!">
+                    {params.row.timeOfDay ?? '-'}
                 </Typography>
-            ),
+            )
         },
         {
-            field: "cashier",
-            headerName: "Cashier",
+            field: 'cashier',
+            headerName: 'Cashier',
             minWidth: 150,
             flex: 1,
             renderCell: (params) => (
-                <Typography variant="body1" className="text-sm!">
+                <Typography variant='body1' className="text-sm!">
                     {getPersonDisplayName(params.row.cashier)}
                 </Typography>
-            ),
+            )
         },
         {
-            field: "amount",
-            headerName: "Amount",
+            field: 'amount',
+            headerName: 'Amount',
             minWidth: 150,
             flex: 1,
             renderCell: (params) => (
-                <Typography variant="body1" className="text-sm!">
+                <Typography variant='body1' className="text-sm!">
                     {priceFormat(params.row.amount)}
                 </Typography>
-            ),
+            )
         },
         ...(view !== "pending"
             ? [
-                  {
-                      field: "status",
-                      headerName: "Status",
-                      minWidth: 150,
-                      flex: 1,
-                      renderCell: (params) => (
-                          <Chip
-                              size="small"
-                              label={params.row.status}
-                              color={STATUS_COLORS[params.row.status] || "default"}
-                              variant="outlined"
-                          />
-                      ),
-                  },
-              ]
+                {
+                    field: "status",
+                    headerName: "Status",
+                    minWidth: 150,
+                    flex: 1,
+                    renderCell: (params) => (
+                        <Chip
+                            size="small"
+                            label={params.row.status}
+                            color={STATUS_COLORS[params.row.status] || "default"}
+                            variant="outlined"
+                        />
+                    ),
+                },
+            ]
             : []),
         {
             field: "actions",
@@ -265,7 +264,7 @@ export default function ManagerAdvanceSlipsPanel() {
                             </span>
                         )}
                     </div>
-                </div>
+                </div >
             ),
             renderCell: (params) => (
                 <div className="flex item-center gap-2">
@@ -570,32 +569,28 @@ export default function ManagerAdvanceSlipsPanel() {
             </Backdrop>
 
             <div className="flex flex-col gap-3">
-                 <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
-                    <Tabs
-                        value={view}
-                        onChange={(_, value) => {
-                            setView(value);
-                            setPage(1);
-                        }}
-                    >
+                <div className="flex items-center justify-between">
+                    <Tabs value={view} onChange={(_, value) => { setView(value); setPage(1); }}>
                         <Tab
                             value="pending"
-                            className="md:pt-6!"
+                            className="pt-6!"
                             label={
                                 <span className="relative flex items-center gap-2">
                                     Pending Queue
-                                    {pendingCount > 0 && <Chip size="small" color="error" label={pendingCount} />}
-                                    <ShortcutBadge shortcut="Shift + 1" className="left-0! w-fit! hidden md:block" />
+                                    {pendingCount > 0 && (
+                                        <Chip size="small" color="error" label={pendingCount} />
+                                    )}
+                                    <ShortcutBadge shortcut="Shift + 1" className="left-0! w-fit!" />
                                 </span>
                             }
                         />
                         <Tab
                             value="all"
-                            className="md:pt-6!"
+                            className="pt-6!"
                             label={
                                 <div className="relative">
                                     <span>All Slips (Audit)</span>
-                                    <ShortcutBadge shortcut="Shift + 2" className="left-0! w-fit! hidden md:block" />
+                                    <ShortcutBadge shortcut="Shift + 2" className="left-0! w-fit!" />
                                 </div>
                             }
                         />
@@ -608,14 +603,12 @@ export default function ManagerAdvanceSlipsPanel() {
                 </div>
 
                 <Paper elevation={0} className="p-3 border border-gray-200 rounded-xl bg-white">
-                    <div className="grid grid-cols-2 items-end gap-x-2 gap-y-3 md:flex md:flex-wrap md:gap-y-7">
+                    <div className="flex flex-wrap gap-3 items-end">
                         {view === "all" && (
-                            <div className="relative w-full min-w-0 md:w-52">
+                            <div className="w-52">
                                 <KitSelect
                                     label="Cashier"
                                     size="small"
-                                    placeholderFontSize={14}
-                                    inputFontSize={14}
                                     options={cashierOptions}
                                     value={
                                         cashierOptions.find((o) => String(o.value) === String(cashierId)) ??
@@ -626,7 +619,7 @@ export default function ManagerAdvanceSlipsPanel() {
                             </div>
                         )}
                         <div className="relative">
-                            <ShortcutBadge shortcut="Alt + S" className="top-0 hidden md:block" />
+                            <ShortcutBadge shortcut="Alt + S" className="top-0" />
                             <KitTextField
                                 inputRef={startDateRef}
                                 size="small"
@@ -634,11 +627,11 @@ export default function ManagerAdvanceSlipsPanel() {
                                 label="Start"
                                 value={startDate}
                                 onChange={(e) => setStartDate(e.target.value)}
-                                className="w-full md:w-40"
+                                className="w-40"
                             />
                         </div>
                         <div className="relative">
-                            <ShortcutBadge shortcut="Alt + E" className="top-0 hidden md:block" />
+                            <ShortcutBadge shortcut="Alt + E" className="top-0" />
                             <KitTextField
                                 inputRef={endDateRef}
                                 size="small"
@@ -646,35 +639,35 @@ export default function ManagerAdvanceSlipsPanel() {
                                 label="End"
                                 value={endDate}
                                 onChange={(e) => setEndDate(e.target.value)}
-                                className="w-full md:w-40"
+                                className="w-40"
                             />
                         </div>
                         <div className="relative">
-                            <ShortcutBadge shortcut="Shift + C" className="-top-5! hidden md:block" />
+                            <ShortcutBadge shortcut="Shift + C" className="-top-5!" />
                             <KitButton
                                 size="small"
                                 variant="contained"
-                                className="w-full! sm:w-auto!"
+                                className="w-auto"
                                 onClick={() => handleExport("csv")}
                             >
                                 Export as CSV
                             </KitButton>
                         </div>
                         <div className="relative">
-                            <ShortcutBadge shortcut="Shift + X" className="-top-5! hidden md:block" />
+                            <ShortcutBadge shortcut="Shift + X" className="-top-5!" />
                             <KitButton
                                 size="small"
                                 variant="contained"
-                                className="w-full! sm:w-auto!"
+                                className="w-auto"
                                 onClick={() => handleExport("xlsx")}
                             >
                                 Export as XLSX
                             </KitButton>
                         </div>
                         <div className="relative">
-                            <ShortcutBadge shortcut="Alt + R" className="-top-5! hidden md:block" />
+                            <ShortcutBadge shortcut="Alt + R" className="-top-5" />
                             <IconButton
-                                className="w-full! sm:w-10.5! h-7.5! rounded-sm! min-w-fit! p-1! border! border-blue-600!"
+                                className="w-10.5! h-7.5! rounded-sm! min-w-fit! p-1! border! border-blue-600!"
                                 onClick={() => refreshAll()}
                             >
                                 <KitIcon icon="tabler:refresh" className="text-xl! text-primary" />
@@ -695,7 +688,9 @@ export default function ManagerAdvanceSlipsPanel() {
                     error={!!advanceSlipsError}
                     disableRowSelectionOnClick
                     getRowClassName={(params) =>
-                        params.indexRelativeToCurrentPage === activeRowIndex ? "active-row" : ""
+                        params.indexRelativeToCurrentPage === activeRowIndex
+                            ? "active-row"
+                            : ""
                     }
                     sx={(theme) => ({
                         "& .active-row": {
@@ -715,7 +710,11 @@ export default function ManagerAdvanceSlipsPanel() {
                         setAnchorEl(null);
                     }}
                 >
-                    <Popper open={Boolean(anchorEl)} anchorEl={anchorEl} placement="top">
+                    <Popper
+                        open={Boolean(anchorEl)}
+                        anchorEl={anchorEl}
+                        placement="top"
+                    >
                         <Paper className="fixed bottom-4 right-4 z-50 p-4 border shadow-lg w-96">
                             <Typography className="font-semibold! mb-2">Approve {approveSlip.slipNumber}</Typography>
                             <KitTextField
@@ -741,15 +740,7 @@ export default function ManagerAdvanceSlipsPanel() {
                                 >
                                     Cancel
                                 </KitButton>
-                                <KitButton
-                                    size="small"
-                                    variant="contained"
-                                    color="success"
-                                    className="w-auto"
-                                    onClick={handleApprove}
-                                >
-                                    Approve
-                                </KitButton>
+                                <KitButton size="small" variant="contained" color="success" className="w-auto" onClick={handleApprove}>Approve</KitButton>
                             </div>
                         </Paper>
                     </Popper>
@@ -763,7 +754,11 @@ export default function ManagerAdvanceSlipsPanel() {
                         setAnchorEl(null);
                     }}
                 >
-                    <Popper open={Boolean(anchorEl)} anchorEl={anchorEl} placement="top">
+                    <Popper
+                        open={Boolean(anchorEl)}
+                        anchorEl={anchorEl}
+                        placement="top"
+                    >
                         <Paper className="fixed bottom-4 right-4 z-50 p-4 border shadow-lg w-96">
                             <Typography className="font-semibold! mb-2">Reject {rejectSlip.slipNumber}</Typography>
                             <div className="flex flex-col gap-2 my-3!">
@@ -797,15 +792,7 @@ export default function ManagerAdvanceSlipsPanel() {
                                 >
                                     Cancel
                                 </KitButton>
-                                <KitButton
-                                    size="small"
-                                    variant="contained"
-                                    color="error"
-                                    className="w-auto"
-                                    onClick={handleReject}
-                                >
-                                    Reject
-                                </KitButton>
+                                <KitButton size="small" variant="contained" color="error" className="w-auto" onClick={handleReject}>Reject</KitButton>
                             </div>
                         </Paper>
                     </Popper>
@@ -819,7 +806,11 @@ export default function ManagerAdvanceSlipsPanel() {
             </div>
 
             <KitShow show={showSlipDrawer}>
-                <ManagerSlipDrawer isOpen={showSlipDrawer} onClose={toggleSlipDrawer} detailSlip={detailSlip} />
+                <ManagerSlipDrawer
+                    isOpen={showSlipDrawer}
+                    onClose={toggleSlipDrawer}
+                    detailSlip={detailSlip}
+                />
             </KitShow>
         </>
     );

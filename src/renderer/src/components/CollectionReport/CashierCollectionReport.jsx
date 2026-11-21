@@ -50,7 +50,7 @@ const getCashierLabel = (log, cashierNameMap = {}) => {
 };
 
 const DenominationTable = ({ title, denominations = [], totalCash, totalNotes }) => (
-    <div className="flex-1 min-w-65">
+    <div className="flex-1 min-w-[260px]">
         <Typography className="font-semibold! text-sm! mb-2">{title}</Typography>
         {!denominations?.length ? (
             <Typography className="text-sm! text-third-500">No data</Typography>
@@ -321,7 +321,7 @@ export default function CashierCollectionReport({
             </Backdrop>
 
             <div className="min-h-full">
-                <div className="mb-3 md:mb-4 flex flex-col gap-3">
+                <div className="mb-4 flex flex-col gap-3">
                     <div className="flex flex-wrap items-center justify-between gap-3">
                         <KitHeader
                             title={title}
@@ -351,10 +351,10 @@ export default function CashierCollectionReport({
                     </div>
 
                     <Paper elevation={0} className="p-3 border border-gray-200 rounded-xl">
-                        <div className="grid grid-cols-2 items-end gap-x-2 gap-y-3 md:flex md:flex-wrap md:gap-y-7">
+                        <div className="flex flex-wrap items-end gap-3">
                             {showCashierFilter && (
-                                <div className="relative w-full min-w-0 md:w-56">
-                                    <ShortcutBadge shortcut="Alt + C" className="top-0 hidden md:block" />
+                                <div className="w-56 relative">
+                                    <ShortcutBadge shortcut="Alt + C" className="top-0!" />
                                     <KitSelect
                                         ref={cashierRef}
                                         label="Cashier"
@@ -377,7 +377,7 @@ export default function CashierCollectionReport({
                                 </div>
                             )}
                             <div className="relative">
-                                <ShortcutBadge shortcut="Alt + S" className="top-0 hidden md:block" />
+                                <ShortcutBadge shortcut="Alt + S" className="top-0" />
                                 <KitTextField
                                     inputRef={startDateRef}
                                     size="small"
@@ -389,11 +389,11 @@ export default function CashierCollectionReport({
                                         setPage(1);
                                         setStartDate(e.target.value);
                                     }}
-                                    className="w-full md:w-44"
+                                    className="w-44"
                                 />
                             </div>
                             <div className="relative">
-                                <ShortcutBadge shortcut="Alt + E" className="top-0 hidden md:block" />
+                                <ShortcutBadge shortcut="Alt + E" className="top-0" />
                                 <KitTextField
                                     inputRef={endDateRef}
                                     size="small"
@@ -405,16 +405,16 @@ export default function CashierCollectionReport({
                                         setPage(1);
                                         setEndDate(e.target.value);
                                     }}
-                                    className="w-full md:w-44"
+                                    className="w-44"
                                 />
                             </div>
                         </div>
                     </Paper>
                 </div>
 
-                <Grid container spacing={{ xs: 1, md: 2 }} className="mb-3 md:mb-4">
+                <Grid container spacing={2} className="mb-4">
                     {summaryCards.map((card) => (
-                        <Grid size={{ xs: 6, sm: 6, md: 4, lg: 2 }} key={card.title}>
+                        <Grid size={{ xs: 12, sm: 6, md: 4, lg: 2 }} key={card.title}>
                             <Paper elevation={0} className="p-3 border border-gray-200 rounded-xl h-full">
                                 <div className="flex items-center gap-2 mb-1">
                                     <KitIcon icon={card.icon} className="text-primary text-xl!" />
@@ -443,7 +443,9 @@ export default function CashierCollectionReport({
                             {logs.map((log, index) => {
                                 const isOpen = !log.endAt;
                                 const netCash = toNumber(log.endTotalCash) - toNumber(log.startTotalCash);
-                                const cashierLabel = showCashierName ? getCashierLabel(log, cashierNameMap) : null;
+                                const cashierLabel = showCashierName
+                                    ? getCashierLabel(log, cashierNameMap)
+                                    : null;
 
                                 return (
                                     <Accordion
@@ -453,20 +455,17 @@ export default function CashierCollectionReport({
                                         expanded={expanded === index}
                                         onChange={() => {
                                             setActiveIndex(index);
-                                            setExpanded(expanded === index ? null : index);
+                                            setExpanded(expanded === index ? null : index)
                                         }}
                                         sx={{
                                             "&:before": { display: "none" },
-                                            backgroundColor:
-                                                activeIndex === index
-                                                    ? "var(--mui-palette-customColors-activeBackground)"
-                                                    : "transparent",
+                                            backgroundColor: activeIndex === index ? "var(--mui-palette-customColors-activeBackground)" : "transparent",
                                             transition: ".2s",
                                         }}
                                     >
                                         <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-                                            <div className="flex flex-wrap items-center gap-x-3 gap-y-2 w-full pr-2">
-                                                <Typography className="font-semibold! min-w-27.5">
+                                            <div className="flex flex-wrap items-center gap-3 w-full pr-2">
+                                                <Typography className="font-semibold! min-w-[110px]">
                                                     {format(new Date(log.date), "dd MMM yyyy")}
                                                 </Typography>
                                                 {cashierLabel && (
@@ -478,7 +477,12 @@ export default function CashierCollectionReport({
                                                     />
                                                 )}
                                                 {log.source === "local" && (
-                                                    <Chip size="small" label="Local" color="info" variant="outlined" />
+                                                    <Chip
+                                                        size="small"
+                                                        label="Local"
+                                                        color="info"
+                                                        variant="outlined"
+                                                    />
                                                 )}
                                                 <Chip
                                                     size="small"
@@ -487,8 +491,7 @@ export default function CashierCollectionReport({
                                                     variant="outlined"
                                                 />
                                                 <Typography className="text-sm! text-third-500">
-                                                    Start: {priceFormat(log.startTotalCash)} → End:{" "}
-                                                    {priceFormat(log.endTotalCash)}
+                                                    Start: {priceFormat(log.startTotalCash)} → End: {priceFormat(log.endTotalCash)}
                                                 </Typography>
                                                 {!isOpen && (
                                                     <Chip
@@ -500,25 +503,30 @@ export default function CashierCollectionReport({
                                             </div>
                                         </AccordionSummary>
                                         <AccordionDetails className="bg-third-reverse">
-                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-3 md:mb-4">
+                                            {showDaySummary && expanded === index && (
+                                                <CashierDaySummary
+                                                    cashierId={log.userId ?? log.cashier?.id ?? userId}
+                                                    date={log.date}
+                                                    storeId={storeId}
+                                                />
+                                            )}
+                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                                                 <Paper elevation={0} className="p-3 border rounded-lg">
                                                     <Typography className="font-semibold! mb-2">Start Day</Typography>
                                                     <div className="text-sm space-y-1">
                                                         <div>Time: {formatDateTime(log.startAt)}</div>
                                                         <div>Cash: {priceFormat(log.startTotalCash)}</div>
                                                         <div>Notes: {log.startTotalNotes ?? 0}</div>
-                                                        {/* {(log.advanceCount || log.advanceAmount) && (
+                                                        {(log.advanceCount || log.advanceAmount) && (
                                                             <div>
-                                                                Advances: {log.advanceCount ?? 0} (
-                                                                {priceFormat(log.advanceAmount)})
+                                                                Advances: {log.advanceCount ?? 0} ({priceFormat(log.advanceAmount)})
                                                             </div>
                                                         )}
                                                         {(log.voucherCount || log.voucherAmount) && (
                                                             <div>
-                                                                Vouchers: {log.voucherCount ?? 0} (
-                                                                {priceFormat(log.voucherAmount)})
+                                                                Vouchers: {log.voucherCount ?? 0} ({priceFormat(log.voucherAmount)})
                                                             </div>
-                                                        )} */}
+                                                        )}
                                                     </div>
                                                 </Paper>
                                                 <Paper elevation={0} className="p-3 border rounded-lg">
@@ -527,28 +535,17 @@ export default function CashierCollectionReport({
                                                         <div>Time: {formatDateTime(log.endAt)}</div>
                                                         <div>Cash: {priceFormat(log.endTotalCash)}</div>
                                                         <div>Notes: {log.endTotalNotes ?? "-"}</div>
-                                                        <div>
-                                                            Card: {log.totalCardCount ?? 0} (
-                                                            {priceFormat(log.totalCardAmount)})
-                                                        </div>
-                                                        <div>
-                                                            UPI: {log.totalUPICount ?? 0} (
-                                                            {priceFormat(log.totalUPIAmount)})
-                                                        </div>
-                                                        {/* <div>Card: {log.totalCardCount ?? 0} ({priceFormat(log.totalCardAmount)})</div>
+                                                        <div>Card: {log.totalCardCount ?? 0} ({priceFormat(log.totalCardAmount)})</div>
                                                         <div>UPI: {log.totalUPICount ?? 0} ({priceFormat(log.totalUPIAmount)})</div>
-                                                        <div>Amex / Sodexo: {log.totalSodexoCount ?? 0} ({priceFormat(log.totalSodexoAmount)})</div> */}
+                                                        <div>Amex / Sodexo: {log.totalSodexoCount ?? 0} ({priceFormat(log.totalSodexoAmount)})</div>
                                                         {log.counterId && <div>Counter ID: {log.counterId}</div>}
                                                         {log.mobileNumber && <div>Mobile: {log.mobileNumber}</div>}
                                                     </div>
                                                 </Paper>
                                             </div>
 
-                                            {(log.advanceAmount ||
-                                                log.advanceCount ||
-                                                log.voucherAmount ||
-                                                log.voucherCount) && (
-                                                <Paper elevation={0} className="p-3 border rounded-lg mb-3 md:mb-4">
+                                            {(log.advanceAmount || log.advanceCount || log.voucherAmount || log.voucherCount) && (
+                                                <Paper elevation={0} className="p-3 border rounded-lg mb-4">
                                                     <Typography className="font-semibold! mb-2">Adjustments</Typography>
                                                     <div className="text-sm space-y-1">
                                                         {log.advanceAmount && (

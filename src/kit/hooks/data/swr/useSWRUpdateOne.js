@@ -7,13 +7,11 @@ export const useSWRUpdateOne = ({
     id,
     apiVersion,
     status,
-    password,
-    method,
 }) => {
     const { data, error, trigger, reset, isMutating } = useSWRMutation(
         [`${path}/${id}`],
         ([], { arg }) =>
-            updateOne(path, id, arg.body, arg.params, arg.headers, apiVersion, status, password, method),
+            updateOne(path, id, arg.body, arg.params, arg.headers, apiVersion, status),
     );
 
     const defaultOptimisticData = (

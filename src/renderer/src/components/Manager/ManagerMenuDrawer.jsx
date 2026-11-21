@@ -16,7 +16,6 @@ const ManagerMenuDrawer = ({ isOpen, onClose, userData, handleLogout }) => {
     const [openSync, setOpenSync] = useState(false);
     const [openReports, setOpenReports] = useState(false);
     const [openCoupons, setOpenCoupons] = useState(false);
-    const [openBusyIntegration, setOpenBusyIntegration] = useState(false);
     const [activeIndex, setActiveIndex] = useState(0);
     const [isManagerUnlockModalOpen, setIsManagerUnlockModalOpen] = useState(false);
     const [pendingNavigation, setPendingNavigation] = useState(null);
@@ -179,66 +178,6 @@ const ManagerMenuDrawer = ({ isOpen, onClose, userData, handleLogout }) => {
                   },
               ]
             : []),
-        {
-            title: "Busy Integration",
-            icon: "tabler:building-store",
-            shortcut: "",
-            expandable: true,
-            expanded: openBusyIntegration,
-            action: () => setOpenBusyIntegration((v) => !v),
-        },
-        ...(openBusyIntegration
-            ? [
-                  {
-                      title: "Health & Companies",
-                      icon: "tabler:building-community",
-                      shortcut: "Shift + F1",
-                      action: () => navigate("/health-companies"),
-                  },
-                  {
-                      title: "Push Bills To Buy",
-                      icon: "tabler:file-export",
-                      shortcut: "Shift + F2",
-                      action: () => navigate("/push-bills-to-buy"),
-                  },
-                  {
-                      title: "Busy Sale Invoices",
-                      icon: "tabler:file-invoice",
-                      shortcut: "Shift + F3",
-                      action: () => navigate("/by-sale-invoices"),
-                  },
-                  {
-                      title: "Sales Order",
-                      icon: "tabler:shopping-cart",
-                      shortcut: "Shift + F4",
-                      action: () => navigate("/sales-order"),
-                  },
-                  {
-                      title: "Items Sync",
-                      icon: "tabler:package",
-                      shortcut: "Shift + F5",
-                      action: () => navigate("/items-sync"),
-                  },
-                  {
-                      title: "Stock Sync",
-                      icon: "tabler:packages",
-                      shortcut: "Shift + F6",
-                      action: () => navigate("/stock-sync"),
-                  },
-                  {
-                      title: "Sync Logs",
-                      icon: "tabler:history",
-                      shortcut: "Shift + F7",
-                      action: () => navigate("/sync-logs"),
-                  },
-                  {
-                      title: "Busy Settings",
-                      icon: "tabler:settings",
-                      shortcut: "Shift + F8",
-                      action: () => navigate("/busy-settings"),
-                  },
-              ]
-            : []),
     ];
 
     const handleMenuAction = (item) => {
@@ -317,27 +256,6 @@ const ManagerMenuDrawer = ({ isOpen, onClose, userData, handleLogout }) => {
                 };
 
                 const action = reportRoutes[e.key];
-                if (action) {
-                    e.preventDefault();
-                    onClose();
-                    action();
-                    return;
-                }
-            }
-
-            if (e.shiftKey && !e.ctrlKey && !e.altKey) {
-                const busyRoutes = {
-                    F1: () => navigate("/health-companies"),
-                    F2: () => navigate("/push-bills-to-buy"),
-                    F3: () => navigate("/by-sale-invoices"),
-                    F4: () => navigate("/sales-order"),
-                    F5: () => navigate("/items-sync"),
-                    F6: () => navigate("/stock-sync"),
-                    F7: () => navigate("/sync-logs"),
-                    F8: () => navigate("/busy-settings"),
-                };
-
-                const action = busyRoutes[e.key];
                 if (action) {
                     e.preventDefault();
                     onClose();
@@ -432,7 +350,7 @@ const ManagerMenuDrawer = ({ isOpen, onClose, userData, handleLogout }) => {
                                         sx={(theme) => ({
                                             borderRadius: 2,
                                             mb: 0.5,
-                                            pl: 2,
+                                            pl: item.title.includes("Sync") && item.title !== "Synchronization" ? 7 : 2,
                                             bgcolor:
                                                 activeIndex === index
                                                     ? theme.palette.customColors.activeBackground

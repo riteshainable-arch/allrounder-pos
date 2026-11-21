@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Alert, Backdrop, Chip, CircularProgress, Paper, Typography } from "@mui/material";
 import KitButton from "../../../../kit/components/KitButton/KitButton";
 import KitIcon from "../../../../kit/components/KitIcon/KitIcon";
+import KitMuiTable from "../../../../kit/components/KitMuiTable";
 import KitCreatableSelect from "../../../../kit/components/KitCreatableSelect";
 import { fetchLoyaltyLedger, useGetLoyaltyBalance, useGetLoyaltyLedger } from "../../../../kit/hooks/data/loyalty";
 import { priceFormat } from "../../../../kit/utils/priceFormat";
@@ -42,15 +43,11 @@ export default function LoyaltyLedgerPanel({ showBackButton = false }) {
 
     const queryParams = {
         page: page,
-        limit: pageSize,
-    };
+        limit: pageSize
+    }
 
     const { loyaltyBalance, isLoyaltyBalanceLoading } = useGetLoyaltyBalance(phone, Boolean(phone.length === 10));
-    const { loyaltyLedger, isLoyaltyLedgerLoading, loyaltyLedgerError } = useGetLoyaltyLedger(
-        phone,
-        Boolean(phone.length === 10),
-        queryParams
-    );
+    const { loyaltyLedger, isLoyaltyLedgerLoading, loyaltyLedgerError } = useGetLoyaltyLedger(phone, Boolean(phone.length === 10), queryParams);
 
     const loadCustomers = useCallback(async (search = "") => {
         try {
@@ -91,89 +88,85 @@ export default function LoyaltyLedgerPanel({ showBackButton = false }) {
 
     const columns = [
         {
-            field: "date",
-            headerName: "Date",
+            field: 'date',
+            headerName: 'Date',
             minWidth: 180,
             flex: 1,
             renderCell: (params) => (
-                <Typography variant="body1" className="text-sm!">
+                <Typography variant='body1' className="text-sm!">
                     {formatLedgerDate(params?.row?.date || params?.row?.createdAt || params?.row?.transactionDate)}
                 </Typography>
-            ),
+            )
         },
         {
-            field: "invoiceNo",
-            headerName: "Invoice No",
+            field: 'invoiceNo',
+            headerName: 'Invoice No',
             minWidth: 150,
             flex: 1,
             renderCell: (params) => (
-                <Typography variant="body1" className="text-sm!">
+                <Typography variant='body1' className="text-sm!">
                     {params?.row?.invoiceNo || params?.row?.orderNo || params?.row?.referenceNo || "-"}
                 </Typography>
-            ),
+            )
         },
         {
-            field: "invoiceValue",
-            headerName: "Value ₹",
+            field: 'invoiceValue',
+            headerName: 'Value ₹',
             minWidth: 150,
             flex: 1,
             renderCell: (params) => (
-                <Typography variant="body1" className="text-sm!">
+                <Typography variant='body1' className="text-sm!">
                     {priceFormat(params?.row?.invoiceValue ?? params?.row?.value ?? params?.row?.amount ?? 0)}
                 </Typography>
-            ),
+            )
         },
         {
-            field: "type",
-            headerName: "Type",
+            field: 'type',
+            headerName: 'Type',
             minWidth: 150,
             flex: 1,
             renderCell: (params) => (
                 <Chip size="small" label={params.row.type || params.row.transactionType || "-"} variant="outlined" />
-            ),
+            )
         },
         {
-            field: "earned",
-            headerName: "Earned",
+            field: 'earned',
+            headerName: 'Earned',
             minWidth: 150,
             flex: 1,
             renderCell: (params) => {
-                const earned = Number(
-                    params?.row?.earnedPoints ?? params?.row?.pointsEarned ?? params?.row?.earned ?? 0
-                );
+                const earned = Number(params?.row?.earnedPoints ?? params?.row?.pointsEarned ?? params?.row?.earned ?? 0);
                 return (
-                    <Typography variant="body1" className="text-sm!">
+                    <Typography variant='body1' className="text-sm!">
                         {earned > 0 ? `+${earned}` : "-"}
                     </Typography>
                 );
-            },
+            }
         },
         {
-            field: "redeemed",
-            headerName: "Redeemed",
+            field: 'redeemed',
+            headerName: 'Redeemed',
             minWidth: 150,
             flex: 1,
             renderCell: (params) => {
-                const redeemed = Number(
-                    params?.row?.redeemedPoints ?? params?.row?.pointsRedeemed ?? params?.row?.redeemed ?? 0
-                );
+                const redeemed = Number(params?.row?.redeemedPoints ?? params?.row?.pointsRedeemed ?? params?.row?.redeemed ?? 0);
                 return (
-                    <Typography variant="body1" className="text-sm!">
+                    <Typography variant='body1' className="text-sm!">
                         {redeemed > 0 ? `−${redeemed}` : "-"}
                     </Typography>
                 );
-            },
+            }
         },
         {
-            field: "balanceAfter",
-            headerName: "Balance After",
+            field: 'balanceAfter',
+            headerName: 'Balance After',
             minWidth: 150,
             flex: 1,
             renderCell: (params) => (
-                <Typography variant="body1" className="text-sm!">
+                <Typography variant='body1' className="text-sm!">
                     {params?.row?.balanceAfter || params?.row?.closingBalance || "-"}
                 </Typography>
-            ),
+            )
         },
     ];
 
@@ -216,6 +209,7 @@ export default function LoyaltyLedgerPanel({ showBackButton = false }) {
 
             if (type === "csv") {
                 downloadCsv(exportRows, `loyalty_ledger_${timestamp}.csv`);
+
             } else {
                 downloadXlsx(exportRows, `loyalty_ledger_${timestamp}.xlsx`, "Loyalty Ledger");
             }
@@ -241,7 +235,7 @@ export default function LoyaltyLedgerPanel({ showBackButton = false }) {
             <div className="flex flex-col gap-3">
                 <div className="flex justify-between items-center">
                     <KitHeader
-                        title="Loyalty Ledger"
+                        title='Loyalty Ledger'
                         subtitle="View loyalty points transactions"
                         icon="tabler:gift"
                         count={loyaltyLedger?.data?.pagination?.totalItems ?? 0}
@@ -262,8 +256,8 @@ export default function LoyaltyLedgerPanel({ showBackButton = false }) {
 
                 <Paper elevation={0} className="p-3 border border-gray-200 rounded-xl bg-white">
                     <div className="flex flex-wrap gap-3 items-end">
-                        <div className="relative w-full min-w-0 md:w-80">
-                            <ShortcutBadge shortcut="Alt + C" className="top-0 hidden md:block" />
+                        <div className="w-80 relative">
+                            <ShortcutBadge shortcut="Alt + C" className="top-0" />
                             <KitCreatableSelect
                                 ref={customerNumberRef}
                                 label="Customer"
@@ -286,29 +280,27 @@ export default function LoyaltyLedgerPanel({ showBackButton = false }) {
                                 }}
                             />
                         </div>
-                        <div className="w-full md:w-auto grid grid-cols-2 gap-x-2">
-                            <div className="relative">
-                                <ShortcutBadge shortcut="Shift + C" className="-top-5! hidden md:block" />
-                                <KitButton
-                                    size="small"
-                                    variant="contained"
-                                    className="w-full md:w-auto"
-                                    onClick={() => handleExport("csv")}
-                                >
-                                    Export as CSV
-                                </KitButton>
-                            </div>
-                            <div className="relative">
-                                <ShortcutBadge shortcut="Shift + X" className="-top-5! hidden md:block" />
-                                <KitButton
-                                    size="small"
-                                    variant="contained"
-                                    className="w-full md:w-auto"
-                                    onClick={() => handleExport("xlsx")}
-                                >
-                                    Export as XLSX
-                                </KitButton>
-                            </div>
+                        <div className="relative">
+                            <ShortcutBadge shortcut="Shift + C" className="-top-5!" />
+                            <KitButton
+                                size="small"
+                                variant="contained"
+                                className="w-auto"
+                                onClick={() => handleExport("csv")}
+                            >
+                                Export as CSV
+                            </KitButton>
+                        </div>
+                        <div className="relative">
+                            <ShortcutBadge shortcut="Shift + X" className="-top-5!" />
+                            <KitButton
+                                size="small"
+                                variant="contained"
+                                className="w-auto"
+                                onClick={() => handleExport("xlsx")}
+                            >
+                                Export as XLSX
+                            </KitButton>
                         </div>
                     </div>
                 </Paper>
@@ -316,11 +308,11 @@ export default function LoyaltyLedgerPanel({ showBackButton = false }) {
                 {loyaltyLedgerError && <Alert severity="error">{loyaltyLedgerError?.message}</Alert>}
 
                 {loyaltyBalance?.data?.balance > 0 && (
-                    <Paper elevation={0} className="p-3 md:p-4 border border-blue-200 bg-blue-50 rounded-xl">
-                        <Typography className="text-xs! md:text-sm! text-third-500">Current balance</Typography>
-                        <Typography className="text-xl! md:text-2xl! font-semibold!">
+                    <Paper elevation={0} className="p-4 border border-blue-200 bg-blue-50 rounded-xl">
+                        <Typography className="text-sm! text-third-500">Current balance</Typography>
+                        <Typography className="text-2xl! font-semibold!">
                             {Number(loyaltyBalance.data.balance ?? 0)} pts
-                            <span className="text-sm! md:text-base! text-third-500 ml-2">
+                            <span className="text-base! text-third-500 ml-2">
                                 (≈ {priceFormat(loyaltyBalance.data.rupeeValueAtCurrentRate ?? 0)})
                             </span>
                         </Typography>

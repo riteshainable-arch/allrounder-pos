@@ -26,6 +26,7 @@ export default function SchemeModal({
     const { AvailableScheme, isAvailableScheme, AvailableSchemeError } = useAvailableScheme();
 
     const [availableSchemeList, setAvailableSchemeList] = useState([]);
+    const [refreshKey, setRefreshKey] = useState(0);
     const checkboxRefs = useRef([]);
     const schemesGridRef = useRef(null);
 
@@ -53,14 +54,13 @@ export default function SchemeModal({
         return () => {
             isActive = false;
         };
-    }, [open, storeId, items]);
+    }, [open, storeId, items, refreshKey]);
 
     useEffect(() => {
         if (!open || isAvailableScheme) return;
 
-        const selectableSchemeIds = new Set(
-            availableSchemeList.filter((scheme) => scheme.itemInCart !== false).map((scheme) => Number(scheme.id))
-        );
+        // Item offers are always selectable: when the item is not on the bill yet, applying the offer adds it.
+        const selectableSchemeIds = new Set(availableSchemeList.map((scheme) => Number(scheme.id)));
         const validSelection = selectedSchemeIds.filter((id) => selectableSchemeIds.has(id));
 
         if (validSelection.length !== selectedSchemeIds.length) {
@@ -73,11 +73,14 @@ export default function SchemeModal({
     };
 
     const applySelectedSchemes = useCallback(() => {
-        onApply(selectedSchemeIds);
+        onApply(
+            selectedSchemeIds,
+            availableSchemeList.filter((scheme) => selectedSchemeIds.includes(Number(scheme.id)))
+        );
         onClose();
-    }, [onApply, onClose, selectedSchemeIds]);
+    }, [availableSchemeList, onApply, onClose, selectedSchemeIds]);
 
-    const firstSelectableSchemeIndex = availableSchemeList.findIndex((scheme) => scheme.itemInCart !== false);
+    const firstSelectableSchemeIndex = availableSchemeList.length > 0 ? 0 : -1;
 
     useEffect(() => {
         if (!open || isAvailableScheme) return;
@@ -194,7 +197,7 @@ export default function SchemeModal({
                             const isSelected = selectedSchemeIds.includes(id);
                             const itemNames = (scheme.items || []).map((item) => item.itemName).filter(Boolean);
                             const discountAmount = Number(scheme.discountAmount) || 0;
-                            const needsItemScan = scheme.itemInCart === false;
+                            const willAddItem = scheme.itemInCart === false;
                             const message = scheme.message?.replace(/^Applied:\s*/i, "");
 
                             return (
@@ -213,25 +216,22 @@ export default function SchemeModal({
                                                 ref: (checkbox) => {
                                                     checkboxRefs.current[index] = checkbox;
                                                 },
-                                                "aria-label": needsItemScan
-                                                    ? `Scan an eligible item before selecting ${scheme.schemeName || scheme.schemeCode}`
-                                                    : `Select ${scheme.schemeName || scheme.schemeCode}`,
+                                                "aria-label": `Select ${scheme.schemeName || scheme.schemeCode}`,
                                             },
                                         }}
                                         checked={isSelected}
                                         onChange={() => toggleScheme(id)}
-                                        disabled={needsItemScan}
                                         sx={{ position: "absolute", top: 8, right: 8 }}
                                     />
                                     <div className="mb-3 flex flex-wrap items-center gap-2 pr-2">
                                         <span
                                             className={`rounded-full px-2.5 py-1 text-[10px] font-bold tracking-wide ${
-                                                needsItemScan
-                                                    ? "bg-amber-100 text-amber-800"
+                                                willAddItem
+                                                    ? "bg-blue-100 text-blue-800"
                                                     : "bg-green-100 text-green-800"
                                             }`}
                                         >
-                                            {needsItemScan ? "SCAN ITEM TO APPLY" : "READY TO APPLY"}
+                                            {willAddItem ? "ITEM ADDED ON APPLY" : "READY TO APPLY"}
                                         </span>
                                         {discountAmount > 0 && (
                                             <span className="rounded-lg bg-green-100 px-2.5 py-1 text-sm font-bold text-green-800">
@@ -248,8 +248,8 @@ export default function SchemeModal({
                                     {message && (
                                         <div
                                             className={`mt-1 rounded-lg border px-2 py-1 text-xs ${
-                                                needsItemScan
-                                                    ? "border-amber-200 bg-amber-50 text-amber-900"
+                                                willAddItem
+                                                    ? "border-blue-200 bg-blue-50 text-blue-900"
                                                     : "border-green-200 bg-white text-green-800"
                                             }`}
                                         >
@@ -283,7 +283,16 @@ export default function SchemeModal({
                 )}
             </div>
 
-            <div className="flex justify-end gap-3 border-t border-third-200 px-4 py-3">
+            <div className="flex items-center justify-end gap-3 border-t border-third-200 px-4 py-3">
+                <KitButton
+                    variant="outlined"
+                    className="mr-auto w-auto"
+                    size="small"
+                    disabled={isAvailableScheme}
+                    onClick={() => setRefreshKey((key) => key + 1)}
+                >
+                    {isAvailableScheme ? "Refreshing..." : "Refresh schemes"}
+                </KitButton>
                 <KitButton variant="outlined" className="w-auto" size="small" onClick={onClose}>
                     Cancel
                 </KitButton>

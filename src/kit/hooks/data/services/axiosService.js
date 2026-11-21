@@ -120,12 +120,11 @@ axiosInstance.interceptors.response.use(
   }
 )
 
-const get = async (path, params, headers, timeout) => {
+const get = async (path, params, headers) => {
   try {
     const response = await axiosInstance.get(path, {
       params: params,
-      headers: headers,
-      ...(timeout ? { timeout } : {})
+      headers: headers
     })
 
     return handleResponse(response)
@@ -134,12 +133,11 @@ const get = async (path, params, headers, timeout) => {
   }
 }
 
-const post = async (path, payload, params, headers, timeout) => {
+const post = async (path, payload, params, headers) => {
   try {
     const response = await axiosInstance.post(path, payload, {
       params: params,
-      headers: headers,
-      ...(timeout ? { timeout } : {})
+      headers: headers
     })
 
     return handleResponse(response)

@@ -59,13 +59,15 @@ export default function Login() {
       const loginDetail = await onLoginAccount(data)
       const role = String(loginDetail?.data?.role || "").toLowerCase()
 
-      storage.setItem("token", loginDetail?.data?.token)
-      storage.setItem("userData", loginDetail?.data)
-
       if (role === Role.ADMIN.toLowerCase()) {
-        navigate("/admin")
+        storage.removeItem("token")
+        storage.removeItem("userData")
+        toast.error("Admin access is not allowed here. Please use the separate admin portal.")
         return
       }
+
+      storage.setItem("token", loginDetail?.data?.token)
+      storage.setItem("userData", loginDetail?.data)
 
       if (role === Role.MANAGER) {
         navigate("/manager-collect")

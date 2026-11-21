@@ -13,7 +13,7 @@ import { useGetAllStockLedgerReport, useMovementTypes } from "../../../../kit/ho
 import KitButton from "../../../../kit/components/KitButton/KitButton";
 import { downloadCSV, flattenNestedObjects } from "../../../../kit/utils/downloadCSV";
 
-export default function StockLedgerReport({ divider = true }) {
+export default function StockLedgerReport() {
     const itemCodeRef = useRef(null);
     const storeRef = useRef(null);
     const movementTypeRef = useRef(null);
@@ -369,7 +369,7 @@ export default function StockLedgerReport({ divider = true }) {
 
     return (
         <div>
-            {divider && <Divider className="mb-3!" />}
+            <Divider className="mb-3!" />
             <div className="flex flex-col gap-3 w-full min-w-0">
                 <KitHeader
                     title="Stock Ledger Report"
@@ -380,9 +380,9 @@ export default function StockLedgerReport({ divider = true }) {
                 />
 
                 <Paper elevation={0} className="p-3 border border-gray-200 rounded-xl">
-                    <div className="grid grid-cols-2 items-end gap-x-2 gap-y-3 md:flex md:flex-wrap md:gap-y-7">
+                    <div className="flex flex-wrap items-end gap-x-3 gap-y-7">
                         <div className="relative">
-                            <ShortcutBadge shortcut="Alt + I" className="top-0 hidden md:block" />
+                            <ShortcutBadge shortcut="Alt + I" className="top-0" />
                             <KitTextField
                                 inputRef={itemCodeRef}
                                 size="small"
@@ -392,15 +392,15 @@ export default function StockLedgerReport({ divider = true }) {
                                 value={itemCode}
                                 onChange={(e) => setItemCode(e.target.value)}
                                 placeholder="Item Code"
-                                className="w-full md:w-44"
+                                className="w-44"
                             />
                         </div>
-                        <div className="relative w-full min-w-0 md:w-60">
-                            <ShortcutBadge shortcut="Alt + S" className="top-0 hidden md:block" />
+                        <div className="relative w-60">
+                            <ShortcutBadge shortcut="Alt + S" className="top-0" />
                             <KitSelect
                                 ref={storeRef}
                                 label="Store Name"
-                                placeholder="Store Name"
+                                placeholder="Select Store Name"
                                 size="small"
                                 placeholderFontSize={14}
                                 inputFontSize={14}
@@ -411,12 +411,12 @@ export default function StockLedgerReport({ divider = true }) {
                                 onChange={(option) => setStoreId(option?.value ?? "")}
                             />
                         </div>
-                        <div className="relative w-full min-w-0 md:w-60">
-                            <ShortcutBadge shortcut="Alt + T" className="top-0 hidden md:block" />
+                        <div className="relative w-60">
+                            <ShortcutBadge shortcut="Alt + T" className="top-0" />
                             <KitSelect
                                 ref={movementTypeRef}
                                 label="Movement Type"
-                                placeholder="Movement"
+                                placeholder="Select Movement Type"
                                 size="small"
                                 placeholderFontSize={14}
                                 inputFontSize={14}
@@ -431,12 +431,12 @@ export default function StockLedgerReport({ divider = true }) {
                                 onChange={(option) => setMovementType(option?.value ?? "")}
                             />
                         </div>
-                        <div className="relative w-full min-w-0 md:w-60">
-                            <ShortcutBadge shortcut="Alt + D" className="top-0 hidden md:block" />
+                        <div className="relative w-60">
+                            <ShortcutBadge shortcut="Alt + D" className="top-0" />
                             <KitSelect
                                 ref={directionRef}
                                 label="Direction"
-                                placeholder="Direction"
+                                placeholder="Select Direction"
                                 size="small"
                                 placeholderFontSize={14}
                                 inputFontSize={14}
@@ -451,12 +451,12 @@ export default function StockLedgerReport({ divider = true }) {
                                 onChange={(option) => setMovementDirection(option?.value ?? "")}
                             />
                         </div>
-                        <div className="relative w-full min-w-0 md:w-60">
-                            <ShortcutBadge shortcut="Alt + U" className="top-0 hidden md:block" />
+                        <div className="relative w-60">
+                            <ShortcutBadge shortcut="Alt + U" className="top-0" />
                             <KitSelect
                                 ref={moduleRef}
                                 label="Module"
-                                placeholder="Module"
+                                placeholder="Select Module"
                                 size="small"
                                 placeholderFontSize={14}
                                 inputFontSize={14}
@@ -471,7 +471,7 @@ export default function StockLedgerReport({ divider = true }) {
                             />
                         </div>
                         <div className="relative">
-                            <ShortcutBadge shortcut="Alt + A" className="top-0 hidden md:block" />
+                            <ShortcutBadge shortcut="Alt + A" className="top-0" />
                             <KitTextField
                                 inputRef={referenceDocumentRef}
                                 size="small"
@@ -481,11 +481,11 @@ export default function StockLedgerReport({ divider = true }) {
                                 value={referenceDocumentId}
                                 onChange={(e) => setReferenceDocumentId(e.target.value)}
                                 placeholder="Reference Document"
-                                className="w-full md:w-44"
+                                className="w-44"
                             />
                         </div>
                         <div className="relative">
-                            <ShortcutBadge shortcut="Alt + F" className="top-0 hidden md:block" />
+                            <ShortcutBadge shortcut="Alt + F" className="top-0" />
                             <KitTextField
                                 inputRef={fromDateRef}
                                 size="small"
@@ -497,7 +497,7 @@ export default function StockLedgerReport({ divider = true }) {
                             />
                         </div>
                         <div className="relative">
-                            <ShortcutBadge shortcut="Alt + E" className="top-0 hidden md:block" />
+                            <ShortcutBadge shortcut="Alt + E" className="top-0" />
                             <KitTextField
                                 inputRef={toDateRef}
                                 size="small"
@@ -509,12 +509,12 @@ export default function StockLedgerReport({ divider = true }) {
                             />
                         </div>
                         <div className="relative">
-                            <ShortcutBadge shortcut="Shift + C" className="-top-5! hidden md:block" />
+                            <ShortcutBadge shortcut="Shift + C" className="-top-5!" />
                             <KitButton
                                 ref={exportRef}
                                 size="small"
                                 variant="contained"
-                                className="w-full md:w-auto"
+                                className="w-auto"
                                 disabled={exportProductLoading}
                                 isLoading={exportProductLoading}
                                 onClick={handleExport}
@@ -523,11 +523,11 @@ export default function StockLedgerReport({ divider = true }) {
                             </KitButton>
                         </div>
                         <div className="relative">
-                            <ShortcutBadge shortcut="Alt + R" className="-top-5! hidden md:block" />
+                            <ShortcutBadge shortcut="Alt + R" className="-top-5" />
                             <IconButton
                                 ref={refreshRef}
                                 onClick={() => refreshLedger()}
-                                className="w-full md:w-10.5! h-7.5! rounded-sm! min-w-fit! p-1! border! border-blue-600!"
+                                className="w-10.5! h-7.5! rounded-sm! min-w-fit! p-1! border! border-blue-600!"
                             >
                                 <KitIcon icon="tabler:refresh" className="text-xl! text-primary" />
                             </IconButton>

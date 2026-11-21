@@ -4,7 +4,7 @@ import { API_VERSION, fetchAll, fetchOne } from "./fetchers"
 import { useSWRUpdateOne } from "./swr/useSWRUpdateOne";
 import useSWRDeleteOneAndRefreshAll from "./swr/useSWRDeleteOneAndRefreshAll";
 
-const GLOBAL_COUPON_LIST_PATH = "admin/billing-schemes";
+const GLOBAL_COUPON_LIST_PATH = "admin/coupons/invoice-discounts";
 const GLOBAL_COUPON_PATH_NAME = "admin/coupons/auto-apply";
 
 const useGetAllGlobalCouponList = (params, shouldFetch = true) => {

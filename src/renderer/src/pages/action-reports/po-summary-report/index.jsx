@@ -23,7 +23,7 @@ import KitButton from "../../../../../kit/components/KitButton/KitButton";
 import POSummaryDetailsModal from "../../../components/POSummary/POSummaryDetailsModal";
 import KitShow from "../../../../../kit/components/KitShow/KitShow";
 
-export default function POSummaryReport({ divider = true }) {
+export default function POSummaryReport() {
     const poNumberRef = useRef(null);
     const poNumberExactRef = useRef(null);
     const statusRef = useRef(null);
@@ -427,7 +427,7 @@ export default function POSummaryReport({ divider = true }) {
 
     return (
         <div>
-            {divider && <Divider className="mb-3!" />}
+            <Divider className="mb-3!" />
             <div className="flex flex-col gap-3 w-full min-w-0">
                 <KitHeader
                     title="PO Summary Report"
@@ -438,9 +438,9 @@ export default function POSummaryReport({ divider = true }) {
                 />
 
                 <Paper elevation={0} className="p-3 border border-gray-200 rounded-xl">
-                    <div className="grid grid-cols-2 items-end gap-x-2 gap-y-3 md:flex md:flex-wrap md:gap-y-7">
+                    <div className="flex flex-wrap items-end gap-x-3 gap-y-7">
                         <div className="relative">
-                            <ShortcutBadge shortcut="Alt + N" className="top-0 hidden md:block" />
+                            <ShortcutBadge shortcut="Alt + N" className="top-0" />
                             <KitTextField
                                 inputRef={poNumberRef}
                                 size="small"
@@ -450,11 +450,11 @@ export default function POSummaryReport({ divider = true }) {
                                 value={search}
                                 onChange={(e) => setSearch(e.target.value)}
                                 placeholder="Search PO Number"
-                                className="w-full md:w-44"
+                                className="w-44"
                             />
                         </div>
                         <div className="relative">
-                            <ShortcutBadge shortcut="Alt + P" className="top-0 hidden md:block" />
+                            <ShortcutBadge shortcut="Alt + P" className="top-0" />
                             <KitTextField
                                 inputRef={poNumberExactRef}
                                 size="small"
@@ -464,11 +464,11 @@ export default function POSummaryReport({ divider = true }) {
                                 value={poNumber}
                                 onChange={(e) => setPoNumber(e.target.value)}
                                 placeholder="PO Number"
-                                className="w-full md:w-44"
+                                className="w-44"
                             />
                         </div>
-                        <div className="relative w-full min-w-0 md:w-60">
-                            <ShortcutBadge shortcut="Alt + A" className="top-0 hidden md:block" />
+                        <div className="relative w-60">
+                            <ShortcutBadge shortcut="Alt + A" className="top-0" />
                             <KitSelect
                                 ref={statusRef}
                                 label="Status"
@@ -483,8 +483,8 @@ export default function POSummaryReport({ divider = true }) {
                                 onChange={(option) => setStatus(option?.value ?? "")}
                             />
                         </div>
-                        <div className="relative w-full min-w-0 md:w-60">
-                            <ShortcutBadge shortcut="Alt + S" className="top-0 hidden md:block" />
+                        <div className="relative w-60">
+                            <ShortcutBadge shortcut="Alt + S" className="top-0" />
                             <KitSelect
                                 ref={storeRef}
                                 label="Store"
@@ -504,12 +504,12 @@ export default function POSummaryReport({ divider = true }) {
                                 }}
                             />
                         </div>
-                        <div className="relative w-full min-w-0 md:w-60">
-                            <ShortcutBadge shortcut="Alt + V" className="top-0 hidden md:block" />
+                        <div className="relative w-60">
+                            <ShortcutBadge shortcut="Alt + V" className="top-0" />
                             <KitSelect
                                 ref={vendorRef}
                                 label="Vendor Name"
-                                placeholder="Vendor Names"
+                                placeholder="Select Vendor Names"
                                 size="small"
                                 placeholderFontSize={14}
                                 inputFontSize={14}
@@ -526,7 +526,7 @@ export default function POSummaryReport({ divider = true }) {
                             />
                         </div>
                         <div className="relative">
-                            <ShortcutBadge shortcut="Alt + D" className="top-0 hidden md:block" />
+                            <ShortcutBadge shortcut="Alt + D" className="top-0" />
                             <KitTextField
                                 ref={createdDateRef}
                                 size="small"
@@ -539,11 +539,11 @@ export default function POSummaryReport({ divider = true }) {
                                         max: format(new Date(), "yyyy-MM-dd"),
                                     },
                                 }}
-                                className="w-full md:w-40"
+                                className="w-40"
                             />
                         </div>
                         <div className="relative">
-                            <ShortcutBadge shortcut="Alt + F" className="top-0 hidden md:block" />
+                            <ShortcutBadge shortcut="Alt + F" className="top-0" />
                             <KitTextField
                                 ref={createdFromRef}
                                 size="small"
@@ -551,11 +551,11 @@ export default function POSummaryReport({ divider = true }) {
                                 label="Created From"
                                 value={createdFrom}
                                 onChange={(e) => setCreatedFrom(e.target.value)}
-                                className="w-full md:w-40"
+                                className="w-40"
                             />
                         </div>
                         <div className="relative">
-                            <ShortcutBadge shortcut="Alt + T" className="top-0 hidden md:block" />
+                            <ShortcutBadge shortcut="Alt + T" className="top-0" />
                             <KitTextField
                                 ref={createdToRef}
                                 size="small"
@@ -563,11 +563,11 @@ export default function POSummaryReport({ divider = true }) {
                                 label="Created To"
                                 value={createdTo}
                                 onChange={(e) => setCreatedTo(e.target.value)}
-                                className="w-full md:w-40"
+                                className="w-40"
                             />
                         </div>
                         <div className="relative">
-                            <ShortcutBadge shortcut="Alt + J" className="top-0 hidden md:block" />
+                            <ShortcutBadge shortcut="Alt + J" className="top-0" />
                             <KitTextField
                                 ref={validTillFromRef}
                                 size="small"
@@ -575,11 +575,11 @@ export default function POSummaryReport({ divider = true }) {
                                 label="Valid Till From"
                                 value={validTillFrom}
                                 onChange={(e) => setValidTillFrom(e.target.value)}
-                                className="w-full md:w-40"
+                                className="w-40"
                             />
                         </div>
                         <div className="relative">
-                            <ShortcutBadge shortcut="Alt + K" className="top-0 hidden md:block" />
+                            <ShortcutBadge shortcut="Alt + K" className="top-0" />
                             <KitTextField
                                 ref={validTillToRef}
                                 size="small"
@@ -587,17 +587,12 @@ export default function POSummaryReport({ divider = true }) {
                                 label="Valid Till To"
                                 value={validTillTo}
                                 onChange={(e) => setValidTillTo(e.target.value)}
-                                className="w-full md:w-40"
+                                className="w-40"
                             />
                         </div>
                         <div className="relative">
-                            <ShortcutBadge shortcut="Alt + U" className="-top-6! hidden md:block" />
+                            <ShortcutBadge shortcut="Alt + U" className="-top-6!" />
                             <FormControlLabel
-                                sx={{
-                                    "& .MuiFormControlLabel-label": {
-                                        fontSize: { xs: "13px", md: "0.875rem" },
-                                    },
-                                }}
                                 control={
                                     <Switch
                                         inputRef={vendorUnassignedRef}
@@ -610,11 +605,11 @@ export default function POSummaryReport({ divider = true }) {
                             />
                         </div>
                         <div className="relative">
-                            <ShortcutBadge shortcut="Alt + R" className="-top-5! hidden md:block" />
+                            <ShortcutBadge shortcut="Alt + R" className="-top-5" />
                             <IconButton
                                 ref={refreshRef}
                                 onClick={() => refreshPOSummaryList()}
-                                className="w-full md:w-10.5! h-7.5! rounded-sm! min-w-fit! p-1! border! border-blue-600!"
+                                className="w-10.5! h-7.5! rounded-sm! min-w-fit! p-1! border! border-blue-600!"
                             >
                                 <KitIcon icon="tabler:refresh" className="text-xl! text-primary" />
                             </IconButton>
@@ -622,9 +617,9 @@ export default function POSummaryReport({ divider = true }) {
                     </div>
                 </Paper>
 
-                <Grid container spacing={{ xs: 1, md: 2 }}>
+                <Grid container spacing={2}>
                     {summaryCards.map((card) => (
-                        <Grid size={{ xs: 6, sm: 6, md: 3, lg: 3 }} key={card.title}>
+                        <Grid size={{ xs: 12, sm: 6, md: 3, lg: 3 }} key={card.title}>
                             <Paper elevation={0} className="p-3 border border-gray-200 rounded-xl h-full">
                                 <div className="flex items-center gap-2 mb-1">
                                     <KitIcon icon={card.icon} className="text-primary text-xl!" />

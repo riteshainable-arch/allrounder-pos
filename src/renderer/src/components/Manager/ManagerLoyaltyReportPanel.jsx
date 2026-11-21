@@ -27,10 +27,9 @@ export default function ManagerLoyaltyReportPanel() {
     const queryParams = {
         startDate: startDate,
         endDate: endDate,
-    };
+    }
 
-    const { loyaltyDailyReport, isLoyaltyDailyReportLoading, loyaltyDailyReportError, refreshLoyaltyDailyReport } =
-        useGetLoyaltyDailyReport(queryParams);
+    const { loyaltyDailyReport, isLoyaltyDailyReportLoading, loyaltyDailyReportError, refreshLoyaltyDailyReport } = useGetLoyaltyDailyReport(queryParams);
 
     const summary = loyaltyDailyReport?.data?.totals || {};
     const tiles = [
@@ -42,59 +41,59 @@ export default function ManagerLoyaltyReportPanel() {
 
     const columns = [
         {
-            field: "date",
-            headerName: "Date",
+            field: 'date',
+            headerName: 'Date',
             minWidth: 180,
             flex: 1,
             renderCell: (params) => (
-                <Typography variant="body1" className="text-sm!">
+                <Typography variant='body1' className="text-sm!">
                     {params?.row?.date || "-"}
                 </Typography>
-            ),
+            )
         },
         {
-            field: "earnedPoints",
-            headerName: "Earned",
+            field: 'earnedPoints',
+            headerName: 'Earned',
             minWidth: 150,
             flex: 1,
             renderCell: (params) => (
-                <Typography variant="body1" className="text-sm!">
+                <Typography variant='body1' className="text-sm!">
                     {params?.row?.earnedPoints ?? params?.row?.totalEarnedPoints ?? "0"}
                 </Typography>
-            ),
+            )
         },
         {
-            field: "redeemedPoints",
-            headerName: "Redeemed",
+            field: 'redeemedPoints',
+            headerName: 'Redeemed',
             minWidth: 150,
             flex: 1,
             renderCell: (params) => (
-                <Typography variant="body1" className="text-sm!">
+                <Typography variant='body1' className="text-sm!">
                     {params?.row?.redeemedPoints ?? params?.row?.totalRedeemedPoints ?? "0"}
                 </Typography>
-            ),
+            )
         },
         {
-            field: "redeemDiscount",
-            headerName: "Discount ₹",
+            field: 'redeemDiscount',
+            headerName: 'Discount ₹',
             minWidth: 150,
             flex: 1,
             renderCell: (params) => (
-                <Typography variant="body1" className="text-sm!">
+                <Typography variant='body1' className="text-sm!">
                     {priceFormat(params?.row?.redeemDiscount ?? params?.row?.totalRedeemDiscount)}
                 </Typography>
-            ),
+            )
         },
         {
-            field: "transactionCount",
-            headerName: "Transactions",
+            field: 'transactionCount',
+            headerName: 'Transactions',
             minWidth: 150,
             flex: 1,
             renderCell: (params) => (
-                <Typography variant="body1" className="text-sm!">
+                <Typography variant='body1' className="text-sm!">
                     {params?.row?.transactionCount ?? params?.row?.count ?? "0"}
                 </Typography>
-            ),
+            )
         },
     ];
 
@@ -123,6 +122,7 @@ export default function ManagerLoyaltyReportPanel() {
 
             if (type === "csv") {
                 downloadCsv(exportRows, `loyalty_report_${timestamp}.csv`);
+
             } else {
                 downloadXlsx(exportRows, `loyalty_report_${timestamp}.xlsx`, "Loyalty Report");
             }
@@ -176,7 +176,7 @@ export default function ManagerLoyaltyReportPanel() {
 
             <div className="flex flex-col gap-3">
                 <KitHeader
-                    title="Daily Loyalty Report"
+                    title='Daily Loyalty Report'
                     subtitle="View daily loyalty points activity"
                     icon="tabler:gift"
                     count={loyaltyDailyReport?.data?.rows?.length ?? 0}
@@ -184,9 +184,9 @@ export default function ManagerLoyaltyReportPanel() {
                 />
 
                 <Paper elevation={0} className="p-3 border border-gray-200 rounded-xl bg-white">
-                    <div className="grid grid-cols-2 items-end gap-x-2 gap-y-3 md:flex md:flex-wrap md:gap-y-7">
+                    <div className="flex flex-wrap gap-3 items-end">
                         <div className="relative">
-                            <ShortcutBadge shortcut="Alt + S" className="top-0 hidden md:block" />
+                            <ShortcutBadge shortcut="Alt + S" className="top-0" />
                             <KitTextField
                                 ref={startDateRef}
                                 size="small"
@@ -194,11 +194,11 @@ export default function ManagerLoyaltyReportPanel() {
                                 label="Start"
                                 value={startDate}
                                 onChange={(e) => setStartDate(e.target.value)}
-                                className="w-full md:w-40"
+                                className="w-40"
                             />
                         </div>
                         <div className="relative">
-                            <ShortcutBadge shortcut="Alt + E" className="top-0 hidden md:block" />
+                            <ShortcutBadge shortcut="Alt + E" className="top-0" />
                             <KitTextField
                                 ref={endDateRef}
                                 size="small"
@@ -206,35 +206,35 @@ export default function ManagerLoyaltyReportPanel() {
                                 label="End"
                                 value={endDate}
                                 onChange={(e) => setEndDate(e.target.value)}
-                                className="w-full md:w-40"
+                                className="w-40"
                             />
                         </div>
                         <div className="relative">
-                            <ShortcutBadge shortcut="Shift + C" className="-top-5! hidden md:block" />
+                            <ShortcutBadge shortcut="Shift + C" className="-top-5!" />
                             <KitButton
                                 size="small"
                                 variant="contained"
-                                className="w-full! md:w-auto!"
+                                className="w-auto"
                                 onClick={() => handleExport("csv")}
                             >
                                 Export as CSV
                             </KitButton>
                         </div>
                         <div className="relative">
-                            <ShortcutBadge shortcut="Shift + X" className="-top-5! hidden md:block" />
+                            <ShortcutBadge shortcut="Shift + X" className="-top-5!" />
                             <KitButton
                                 size="small"
                                 variant="contained"
-                                className="w-full! md:w-auto!"
+                                className="w-auto"
                                 onClick={() => handleExport("xlsx")}
                             >
                                 Export as XLSX
                             </KitButton>
                         </div>
                         <div className="relative">
-                            <ShortcutBadge shortcut="Alt + R" className="-top-5! hidden md:block" />
+                            <ShortcutBadge shortcut="Alt + R" className="-top-5!" />
                             <IconButton
-                                className="w-full! md:w-10.5! h-7.5! rounded-sm! min-w-fit! p-1! border! border-blue-600!"
+                                className="w-10.5! h-7.5! rounded-sm! min-w-fit! p-1! border! border-blue-600!"
                                 onClick={() => refreshLoyaltyDailyReport()}
                             >
                                 <KitIcon icon="tabler:refresh" className="text-xl! text-primary" />
@@ -243,15 +243,15 @@ export default function ManagerLoyaltyReportPanel() {
                     </div>
                 </Paper>
 
-                {loyaltyDailyReportError && (
-                    <Alert severity="error">
-                        {loyaltyDailyReportError?.message || "Failed to load loyalty report."}
-                    </Alert>
-                )}
+                {loyaltyDailyReportError && <Alert severity="error">{loyaltyDailyReportError?.message || "Failed to load loyalty report."}</Alert>}
 
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-2 md:gap-3">
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                     {tiles.map((tile) => (
-                        <Paper key={tile.label} elevation={0} className="p-4 border border-gray-200 rounded-xl">
+                        <Paper
+                            key={tile.label}
+                            elevation={0}
+                            className="p-4 border border-gray-200 rounded-xl"
+                        >
                             <Typography className="text-sm! text-third-500">{tile.label}</Typography>
                             <Typography className="text-xl! font-semibold!">{tile.value}</Typography>
                         </Paper>

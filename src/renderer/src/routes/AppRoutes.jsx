@@ -3,7 +3,6 @@ import AppBootstrapProvider from "../../../kit/hooks/AppBootstrapProvider";
 import AutoSyncProvider from "../../../kit/hooks/AutoSyncProvider";
 import DaySessionProvider from "../../../kit/hooks/DaySessionProvider";
 import Login from "../pages/Login";
-import Admin from "../pages/Admin";
 import Logo from "../../../../resources/allrounder_logo.png";
 import Dashboard from "../pages/Dashboard";
 import Bills from "../pages/Bills";
@@ -37,14 +36,6 @@ import TransferReport from "../pages/action-reports/transfer-report";
 import StockLedgerReport from "../pages/stock-ledger-report";
 import Coupon from "../pages/coupons/coupon";
 import GlobalCoupon from "../pages/coupons/global-coupon";
-import HealthCompanies from "../pages/busy-Integration/health-companies";
-import PushBillsToBuy from "../pages/busy-Integration/push-bills-to-buy";
-import BySaleInvoices from "../pages/busy-Integration/by-sale-invoices";
-import SyncLogs from "../pages/busy-Integration/sync-logs";
-import SalesOrder from "../pages/busy-Integration/sales-order";
-import ItemsSync from "../pages/busy-Integration/items-sync";
-import StockSync from "../pages/busy-Integration/stock-sync";
-import BusySettings from "../pages/busy-Integration/busy-settings";
 import AppUpdateControl from "../components/AppUpdateControl";
 
 const getStoredRole = () => {
@@ -59,6 +50,10 @@ function RoleRoute({ allowedRoles, fallbackMessage, children }) {
         return <Navigate to="/" replace />;
     }
 
+    if (role === Role.ADMIN.toLowerCase()) {
+        return <AccessDenied message="Admin access is not allowed here. Please use the separate admin portal." />;
+    }
+
     if (allowedRoles.includes(role)) {
         return children;
     }
@@ -69,7 +64,6 @@ function RoleRoute({ allowedRoles, fallbackMessage, children }) {
 function AppShell({ mode, onModeChange }) {
     const location = useLocation();
     const showGlobalLogo = location.pathname !== "/";
-    const isAdmin = getStoredRole() === Role.ADMIN.toLowerCase();
     const isDashboard = location.pathname === "/dashboard";
     const isDark = mode === "dark";
 
@@ -113,16 +107,8 @@ function AppShell({ mode, onModeChange }) {
             >
                 {showGlobalLogo && (
                     <div className="flex justify-between items-end px-3 py-2 pt-0">
-                        <div
-                            className={`flex items-end gap-5 w-full ${
-                                isAdmin ? "justify-end md:justify-between" : "justify-between"
-                            }`}
-                        >
-                            <img
-                                src={Logo}
-                                alt="logo"
-                                className={`w-32 object-contain ${isAdmin ? "hidden md:block" : ""}`}
-                            />
+                        <div className="flex items-end justify-between gap-5 w-full">
+                            <img src={Logo} alt="logo" className="w-32 object-contain" />
                             <div className="flex items-center gap-2">
                                 <div className="flex items-end gap-2">
                                     <div className="flex items-end justify-center rounded-md bg-calendar-bg text-calendar-icon">
@@ -166,28 +152,6 @@ function AppShell({ mode, onModeChange }) {
                 <div className={isDashboard ? "flex-1 min-h-0 overflow-hidden" : ""}>
                     <Routes>
                         <Route path="/" element={<Login />} />
-                        <Route
-                            path="/admin"
-                            element={
-                                <RoleRoute
-                                    allowedRoles={[Role.ADMIN.toLowerCase()]}
-                                    fallbackMessage="This page is available only to admins."
-                                >
-                                    <Admin />
-                                </RoleRoute>
-                            }
-                        />
-                        <Route
-                            path="/category-kpis/:categorySlug"
-                            element={
-                                <RoleRoute
-                                    allowedRoles={[Role.ADMIN.toLowerCase()]}
-                                    fallbackMessage="This page is available only to admins."
-                                >
-                                    <Admin />
-                                </RoleRoute>
-                            }
-                        />
                         <Route
                             path="/dashboard"
                             element={
@@ -279,14 +243,6 @@ function AppShell({ mode, onModeChange }) {
                             <Route path="/stock-ledger-report" element={<StockLedgerReport />} />
                             <Route path="/coupon" element={<Coupon />} />
                             <Route path="/global-coupon" element={<GlobalCoupon />} />
-                            <Route path="/health-companies" element={<HealthCompanies />} />
-                            <Route path="/push-bills-to-buy" element={<PushBillsToBuy />} />
-                            <Route path="/by-sale-invoices" element={<BySaleInvoices />} />
-                            <Route path="/items-sync" element={<ItemsSync />} />
-                            <Route path="/sync-logs" element={<SyncLogs />} />
-                            <Route path="/sales-order" element={<SalesOrder />} />
-                            <Route path="/stock-sync" element={<StockSync />} />
-                            <Route path="/busy-settings" element={<BusySettings />} />
                         </Route>
                     </Routes>
                 </div>

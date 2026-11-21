@@ -458,6 +458,80 @@ export default function Dashboard() {
         setIsKOTModalOpen(true);
     };
 
+    // Selecting an ITEM_PRICE offer in the payment screen adds the scheme item to the bill by itself
+    // (the item does not have to be scanned first). Rows added this way carry `schemeAutoAddedFor`
+    // so they can be swapped / removed when the cashier changes or clears the offer.
+    // Returns the full cart that the scheme should be evaluated against.
+    const handleSyncSchemeItems = async (schemeId, autoAddItems = []) => {
+        if (!schemeId) {
+            // Functional update so a late call (e.g. modal closing after the bill was saved) can't bring back a cleared cart.
+            setCartRows((prev) => (prev.some((row) => row.schemeAutoAddedFor) ? prev.filter((row) => !row.schemeAutoAddedFor) : prev));
+            return cartRows.filter((row) => !row.schemeAutoAddedFor);
+        }
+
+        const keepRows = cartRows.filter(
+            (row) => !row.schemeAutoAddedFor || (schemeId && String(row.schemeAutoAddedFor) === String(schemeId))
+        );
+        let nextRows = keepRows;
+
+        if (schemeId && autoAddItems.length > 0) {
+            for (const schemeItem of autoAddItems) {
+                const code = String(schemeItem.itemCode ?? "").trim().toLowerCase();
+                const barcode = String(schemeItem.barcode ?? "").trim().toLowerCase();
+                const matches = (product) =>
+                    (code && String(product.itemCode ?? product.productCode ?? "").trim().toLowerCase() === code) ||
+                    (barcode && getProductBarcodes(product).includes(barcode));
+
+                // The item is already on the bill (scanned, or added earlier by this offer) - nothing to add.
+                if (nextRows.some((row) => !row.isOfferItem && matches(row))) continue;
+
+                let product = [...cartRows, ...productsList].find(matches);
+                if (!product) {
+                    try {
+                        const found = await window.api.getProducts(schemeItem.barcode || schemeItem.itemCode);
+                        product = (found || []).find(matches);
+                    } catch (error) {
+                        product = null;
+                    }
+                }
+
+                if (!product) {
+                    toast.error(`Scheme item ${schemeItem.itemName || schemeItem.itemCode} was not found in this store's stock.`);
+                    continue;
+                }
+
+                const allowedLayerIds = (schemeItem.selectedPriceLayerIds || []).map(String);
+                const layer = Array.isArray(product.priceLayers)
+                    ? product.priceLayers.find(
+                        (l) => l.isActive !== false && allowedLayerIds.includes(String(l.id))
+                    )
+                    : null;
+                const baseProduct = layer
+                    ? {
+                        ...product,
+                        price: layer.salePrice,
+                        salePrice: layer.salePrice,
+                        latestSalePrice: layer.salePrice,
+                        bkdAmount: layer.salePrice,
+                        latestMRP: layer.mrp ?? product.latestMRP,
+                        mrp: layer.mrp ?? product.mrp,
+                        inventoryPriceLayerId: layer.id ?? null,
+                    }
+                    : product;
+
+                const qty = Math.max(1, Number(schemeItem.qty) || 1);
+                nextRows = updateNormalRow(nextRows, baseProduct, qty).map((row) =>
+                    String(row.id) === String(baseProduct.id) && !row.isOfferItem
+                        ? { ...row, schemeAutoAddedFor: schemeId }
+                        : row
+                );
+            }
+        }
+
+        setCartRows(nextRows);
+        return nextRows;
+    };
+
     const handleProductSelect = (product, selectedPriceLayer = null) => {
         if (!product) return;
         if (!requireDayStarted()) return;
@@ -1473,6 +1547,8 @@ export default function Dashboard() {
                 couponCode: paymentData.couponCode,
                 couponDiscountAmount: roundToDecimals(paymentData.couponDiscountAmount || 0),
                 // schemeDiscountAmount: roundToDecimals(schemeDiscountAmount),
+                // Bill-discount offer: the server re-checks it and records the discount against the bill.
+                ...(paymentData.billingSchemeId && { billingSchemeId: paymentData.billingSchemeId }),
                 loyaltyRedeem: redeemPoints,
                 loyaltyRedeemDiscount: roundToDecimals(redeemDiscount),
                 loyaltyRedeemed: roundToDecimals(redeemDiscount),
@@ -1517,7 +1593,18 @@ export default function Dashboard() {
                         balanceAfter: loyaltyPreview.balanceAfter,
                     }
                     : null,
-                saleItems: cartRows.map((item) => ({
+                // Item offers: the evaluated lines carry the offer price + offer tags, so the invoice total
+                // matches what was collected and the discount shows in the scheme reports.
+                saleItems: Array.isArray(paymentData.schemeCartItems)
+                    ? paymentData.schemeCartItems.map(({ id: _cartLineId, ...line }) => ({
+                        ...line,
+                        qty: Number(line.qty ?? line.quantity),
+                        mrp: roundToDecimals(line.mrp ?? 0),
+                        salePrice: roundToDecimals(line.salePrice ?? 0),
+                        isReturnBill: false,
+                        isOfferFreeItem: Boolean(line.isOfferFreeItem),
+                    }))
+                    : cartRows.map((item) => ({
                     itemCode: item.itemCode,
                     itemName: item.productName,
                     qty: item.quantity,
@@ -2910,6 +2997,7 @@ export default function Dashboard() {
                             netPayable={netPayable}
                             cartRows={cartRows}
                             storeId={POS_STORE_ID}
+                            onSyncSchemeItems={handleSyncSchemeItems}
                             onGenerateInvoice={handleGenerateBill}
                             isSaving={isSavingBillLoading}
                             rating={rating}

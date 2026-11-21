@@ -1,16 +1,6 @@
 import * as XLSX from "xlsx";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import {
-    Backdrop,
-    Chip,
-    CircularProgress,
-    FormControlLabel,
-    IconButton,
-    Paper,
-    Switch,
-    Tooltip,
-    Typography,
-} from "@mui/material";
+import { Backdrop, Chip, CircularProgress, FormControlLabel, IconButton, Paper, Switch, Tooltip, Typography } from "@mui/material";
 import { format, parseISO } from "date-fns";
 import CheckCircleIcon from "@mui/icons-material/CheckCircle";
 import FiberManualRecordIcon from "@mui/icons-material/FiberManualRecord";
@@ -26,11 +16,7 @@ import useUser from "../../../../kit/hooks/useUser";
 import { priceFormat } from "../../../../kit/utils/priceFormat";
 import { parseApiList, buildUserLabel } from "../../../../kit/utils/parseApiList";
 import { EllipsisText } from "../../../../kit/utils/ellipsisText";
-import {
-    formatBillPaymentsSummary,
-    getPaymentModeLabel,
-    normalizeBillPayments,
-} from "../../../../kit/utils/billPayments";
+import { formatBillPaymentsSummary, getPaymentModeLabel, normalizeBillPayments } from "../../../../kit/utils/billPayments";
 import { EXPORT_LIMIT, paymentMethodConst } from "../../../../kit/configs/general";
 import { getPersonDisplayName } from "../../../../kit/utils/invoiceBill";
 import InvoiceBillDetailDrawer from "./InvoiceBillDetailDrawer";
@@ -52,7 +38,9 @@ const formatBillDateTime = (date, createdAt) => {
     return (
         <div className="flex flex-col">
             <Typography className="text-sm!">{datePart}</Typography>
-            {timePart && <Typography className="text-xs! text-third-500">{timePart}</Typography>}
+            {timePart && (
+                <Typography className="text-xs! text-third-500">{timePart}</Typography>
+            )}
         </div>
     );
 };
@@ -104,10 +92,9 @@ export default function ManagerInvoicesPanel() {
         ...(invoiceNo && { invoiceNo: invoiceNo }),
         ...(search && { search: search.trim() }),
         ...(returnsOnly && { isReturnBill: true }),
-    };
+    }
 
-    const { invoiceBills, isInvoiceBillsLoading, invoiceBillsError, refreshInvoiceBills } =
-        useInvoiceBills(queryParams);
+    const { invoiceBills, isInvoiceBillsLoading, invoiceBillsError, refreshInvoiceBills } = useInvoiceBills(queryParams);
     const { usersDropdown, isUsersDropdownLoading } = useUsersDropdown({ role: "cashier" });
 
     const report = invoiceBills?.data || {};
@@ -177,12 +164,16 @@ export default function ManagerInvoicesPanel() {
 
             const exportRows = bills.slice(0, EXPORT_LIMIT).map((bill) => {
                 const paymentSummary =
-                    bill.paymentMethod === paymentMethodConst.MIXED || bill.paymentMethod === "mixed"
+                    bill.paymentMethod === paymentMethodConst.MIXED ||
+                        bill.paymentMethod === "mixed"
                         ? formatBillPaymentsSummary(bill)
                         : getPaymentModeLabel(bill.paymentMethod) || "-";
 
                 const publishedDate =
-                    bill.date || (bill.createdAt ? format(parseISO(bill.createdAt), "yyyy-MM-dd hh:mm a") : "-");
+                    bill.date ||
+                    (bill.createdAt
+                        ? format(parseISO(bill.createdAt), "yyyy-MM-dd hh:mm a")
+                        : "-");
 
                 return {
                     "Invoice No": bill.invoiceNo || "-",
@@ -217,79 +208,82 @@ export default function ManagerInvoicesPanel() {
 
     const columns = [
         {
-            field: "invoiceNo",
-            headerName: "Invoice No",
+            field: 'invoiceNo',
+            headerName: 'Invoice No',
             minWidth: 180,
             flex: 1,
             renderCell: (params) => (
-                <Typography variant="body1" className="text-sm!">
+                <Typography variant='body1' className="text-sm!">
                     {params?.row?.invoiceNo ?? "-"}
                 </Typography>
-            ),
+            )
         },
         {
-            field: "dateTime",
-            headerName: "Date / Time",
-            minWidth: 150,
-            flex: 1,
-            renderCell: (params) => formatBillDateTime(params?.row?.date, params?.row?.createdAt),
-        },
-        {
-            field: "customer",
-            headerName: "Customer",
-            minWidth: 150,
-            flex: 1,
-            renderCell: (params) => (
-                <Typography variant="body1" className="text-sm!">
-                    {getCustomerLabel(params.row)}
-                </Typography>
-            ),
-        },
-        {
-            field: "busyNumber",
-            headerName: "BUSY Inv No",
+            field: 'busyNumber',
+            headerName: 'BUSY Inv No',
             minWidth: 130,
             flex: 0.7,
             renderCell: (params) => (
-                <Typography variant="body1" className="text-sm!">
+                <Typography variant='body1' className="text-sm!">
                     {params?.row?.busyNumber || "-"}
                     {params?.row?.source === "BUSY" && (
                         <span className="ml-1 rounded bg-blue-50 px-1 text-[10px] text-blue-700">From BUSY</span>
                     )}
                 </Typography>
-            ),
+            )
         },
         {
-            field: "phone",
-            headerName: "Phone",
+            field: 'dateTime',
+            headerName: 'Date / Time',
             minWidth: 150,
             flex: 1,
             renderCell: (params) => (
-                <Typography variant="body1" className="text-sm!">
+                formatBillDateTime(params?.row?.date, params?.row?.createdAt)
+            )
+        },
+        {
+            field: 'customer',
+            headerName: 'Customer',
+            minWidth: 150,
+            flex: 1,
+            renderCell: (params) => (
+                <Typography variant='body1' className="text-sm!">
+                    {getCustomerLabel(params.row)}
+                </Typography>
+            )
+        },
+        {
+            field: 'phone',
+            headerName: 'Phone',
+            minWidth: 150,
+            flex: 1,
+            renderCell: (params) => (
+                <Typography variant='body1' className="text-sm!">
                     {params.row.phone || "-"}
                 </Typography>
-            ),
+            )
         },
         {
-            field: "cashier",
-            headerName: "Cashier",
+            field: 'cashier',
+            headerName: 'Cashier',
             minWidth: 150,
             flex: 1,
             renderCell: (params) => (
-                <Typography variant="body1" className="text-sm!">
+                <Typography variant='body1' className="text-sm!">
                     {getPersonDisplayName(params.row.createdBy)}
                 </Typography>
-            ),
+            )
         },
         {
-            field: "paymentMethod",
-            headerName: "Payment",
+            field: 'paymentMethod',
+            headerName: 'Payment',
             minWidth: 250,
             flex: 1,
             renderCell: (params) => {
                 const payments = normalizeBillPayments(params?.row);
                 const isMixed =
-                    params?.row.paymentMethod === paymentMethodConst.MIXED || params?.row.paymentMethod === "mixed";
+                    params?.row.paymentMethod === paymentMethodConst.MIXED ||
+                    params?.row.paymentMethod === "mixed";
 
                 if (isMixed && payments.length) {
                     return (
@@ -316,42 +310,43 @@ export default function ManagerInvoicesPanel() {
             },
         },
         {
-            field: "totalAmount",
-            headerName: "Total",
+            field: 'totalAmount',
+            headerName: 'Total',
             minWidth: 150,
             flex: 1,
             renderCell: (params) => (
-                <Typography variant="body1" className="text-sm!">
+                <Typography variant='body1' className="text-sm!">
                     {priceFormat(params.row.totalAmount)}
                 </Typography>
-            ),
+            )
         },
         {
-            field: "cashPortion",
-            headerName: "Cash",
+            field: 'cashPortion',
+            headerName: 'Cash',
             minWidth: 150,
             flex: 1,
             renderCell: (params) => (
-                <Typography variant="body1" className="text-sm!">
+                <Typography variant='body1' className="text-sm!">
                     {priceFormat(params.row.cashPortion)}
                 </Typography>
-            ),
+            )
         },
         {
-            field: "isSettled",
-            headerName: "Settled",
+            field: 'isSettled',
+            headerName: 'Settled',
             minWidth: 150,
             flex: 1,
-            renderCell: (params) =>
+            renderCell: (params) => (
                 params?.row?.isSettled ? (
                     <CheckCircleIcon fontSize="small" color="success" />
                 ) : (
                     <FiberManualRecordIcon fontSize="small" color="error" />
-                ),
+                )
+            )
         },
         {
-            field: "type",
-            headerName: "Type",
+            field: 'type',
+            headerName: 'Type',
             minWidth: 150,
             flex: 1,
             renderCell: (params) => (
@@ -361,7 +356,7 @@ export default function ManagerInvoicesPanel() {
                     label={params?.row?.isReturnBill ? "Return" : "Sale"}
                     variant="outlined"
                 />
-            ),
+            )
         },
         {
             field: "actions",
@@ -373,7 +368,7 @@ export default function ManagerInvoicesPanel() {
                     <span className="rounded bg-blue-100 px-1 py-0.5 text-[9px] font-semibold text-blue-700 h-[16px]! w-fit">
                         Shift + V
                     </span>
-                </div>
+                </div >
             ),
             renderCell: (params) => (
                 <KitButton
@@ -425,7 +420,7 @@ export default function ManagerInvoicesPanel() {
 
                 case "t":
                     e.preventDefault();
-                    setReturnsOnly((prev) => !prev);
+                    setReturnsOnly(prev => !prev);
                     break;
 
                 case "r":
@@ -510,20 +505,20 @@ export default function ManagerInvoicesPanel() {
                 />
 
                 <Paper elevation={0} className="p-3 border border-gray-200 rounded-xl">
-                    <div className="grid grid-cols-2 items-end gap-x-2 gap-y-3 md:flex md:flex-wrap md:gap-y-7">
+                    <div className="flex flex-wrap items-end gap-x-3 gap-y-7">
                         <div className="relative">
-                            <ShortcutBadge shortcut="Alt + O" className="-top-5 hidden md:block" />
+                            <ShortcutBadge shortcut="Alt + O" />
                             <KitDebouncedInput
                                 ref={searchRef}
                                 value={search}
                                 onChange={(value) => setSearch(String(value))}
                                 placeholder="Search invoice, phone, customer, cashier..."
-                                className="w-full md:w-72"
+                                className="w-72"
                                 size="small"
                             />
                         </div>
-                        <div className="relative w-full min-w-0 md:w-52">
-                            <ShortcutBadge shortcut="Alt + C" className="top-0 hidden md:block" />
+                        <div className="w-52 relative">
+                            <ShortcutBadge shortcut="Alt + C" className="top-0" />
                             <KitSelect
                                 ref={cashierRef}
                                 label="Cashier"
@@ -534,14 +529,16 @@ export default function ManagerInvoicesPanel() {
                                 options={cashierOptions}
                                 isDisabled={isUsersDropdownLoading}
                                 value={
-                                    cashierOptions.find((option) => String(option.value) === String(createdById)) ??
-                                    cashierOptions[0]
+                                    cashierOptions.find(
+                                        (option) =>
+                                            String(option.value) === String(createdById)
+                                    ) ?? cashierOptions[0]
                                 }
                                 onChange={(option) => setCreatedById(option?.value ?? "")}
                             />
                         </div>
                         <div className="relative">
-                            <ShortcutBadge shortcut="Alt + S" className="top-0 hidden md:block" />
+                            <ShortcutBadge shortcut="Alt + S" className="top-0" />
                             <KitTextField
                                 inputRef={startDateRef}
                                 size="small"
@@ -550,11 +547,11 @@ export default function ManagerInvoicesPanel() {
                                 label="Start Date"
                                 value={startDate}
                                 onChange={(e) => setStartDate(e.target.value)}
-                                className="w-full md:w-44"
+                                className="w-44"
                             />
                         </div>
                         <div className="relative">
-                            <ShortcutBadge shortcut="Alt + E" className="top-0 hidden md:block" />
+                            <ShortcutBadge shortcut="Alt + E" className="top-0" />
                             <KitTextField
                                 inputRef={endDateRef}
                                 size="small"
@@ -563,11 +560,11 @@ export default function ManagerInvoicesPanel() {
                                 label="End Date"
                                 value={endDate}
                                 onChange={(e) => setEndDate(e.target.value)}
-                                className="w-full md:w-44"
+                                className="w-44"
                             />
                         </div>
                         <div className="relative">
-                            <ShortcutBadge shortcut="Alt + N" className="top-0 hidden md:block" />
+                            <ShortcutBadge shortcut="Alt + N" className="top-0" />
                             <KitTextField
                                 inputRef={nameRef}
                                 size="small"
@@ -577,11 +574,11 @@ export default function ManagerInvoicesPanel() {
                                 value={customerName}
                                 onChange={(e) => setCustomerName(e.target.value)}
                                 placeholder="e.g. Raj"
-                                className="w-full md:w-44"
+                                className="w-44"
                             />
                         </div>
                         <div className="relative">
-                            <ShortcutBadge shortcut="Alt + I" className="top-0 hidden md:block" />
+                            <ShortcutBadge shortcut="Alt + I" className="top-0" />
                             <KitTextField
                                 inputRef={invoiceRef}
                                 size="small"
@@ -591,17 +588,12 @@ export default function ManagerInvoicesPanel() {
                                 value={invoiceNo}
                                 onChange={(e) => setInvoiceNo(e.target.value)}
                                 placeholder="e.g. BILL-1784"
-                                className="w-full md:w-44"
+                                className="w-44"
                             />
                         </div>
                         <div className="relative">
-                            <ShortcutBadge shortcut="Alt + T" className="-top-6! hidden md:block" />
+                            <ShortcutBadge shortcut="Alt + T" className="-top-6!" />
                             <FormControlLabel
-                                sx={{
-                                    "& .MuiFormControlLabel-label": {
-                                        fontSize: { xs: "13px", md: "0.875rem" },
-                                    },
-                                }}
                                 control={
                                     <Switch
                                         size="small"
@@ -613,31 +605,31 @@ export default function ManagerInvoicesPanel() {
                             />
                         </div>
                         <div className="relative">
-                            <ShortcutBadge shortcut="Shift + C" className="-top-5! hidden md:block" />
+                            <ShortcutBadge shortcut="Shift + C" className="-top-5!" />
                             <KitButton
                                 size="small"
                                 variant="contained"
-                                className="w-full md:w-auto"
+                                className="w-auto"
                                 onClick={() => handleExport("csv")}
                             >
                                 Export as CSV
                             </KitButton>
                         </div>
                         <div className="relative">
-                            <ShortcutBadge shortcut="Shift + X" className="-top-5! hidden md:block" />
+                            <ShortcutBadge shortcut="Shift + X" className="-top-5!" />
                             <KitButton
                                 size="small"
                                 variant="contained"
-                                className="w-full md:w-auto"
+                                className="w-auto"
                                 onClick={() => handleExport("xlsx")}
                             >
                                 Export as XLSX
                             </KitButton>
                         </div>
                         <div className="relative">
-                            <ShortcutBadge shortcut="Alt + R" className="-top-5! hidden md:block" />
+                            <ShortcutBadge shortcut="Alt + R" className="-top-5" />
                             <IconButton
-                                className="w-full md:w-10.5! h-7.5! rounded-sm! min-w-fit! p-1! border! border-blue-600!"
+                                className="w-10.5! h-7.5! rounded-sm! min-w-fit! p-1! border! border-blue-600!"
                                 onClick={() => refreshInvoiceBills()}
                             >
                                 <KitIcon icon="tabler:refresh" className="text-xl! text-primary" />
@@ -658,7 +650,9 @@ export default function ManagerInvoicesPanel() {
                     error={!!invoiceBillsError}
                     disableRowSelectionOnClick
                     getRowClassName={(params) =>
-                        params.indexRelativeToCurrentPage === activeRowIndex ? "active-row" : ""
+                        params.indexRelativeToCurrentPage === activeRowIndex
+                            ? "active-row"
+                            : ""
                     }
                     sx={(theme) => ({
                         "& .active-row": {

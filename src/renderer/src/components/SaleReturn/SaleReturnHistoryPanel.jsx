@@ -60,11 +60,11 @@ export default function SaleReturnHistoryPanel({ showCashierFilter = false, show
         limit: pageSize,
         ...(startDate && { startDate: startDate }),
         ...(endDate && { endDate: endDate }),
-        ...(cashierId && (showCashierFilter || isManager) && { cashierId: cashierId }),
+        ...((cashierId && (showCashierFilter || isManager)) && { cashierId: cashierId }),
         ...(customerPhone && { customerPhone: customerPhone.trim() }),
         ...(srnNumber && { srnNumber: srnNumber.trim() }),
         ...(originalInvoiceNo && { originalInvoiceNo: originalInvoiceNo.trim() }),
-    };
+    }
 
     const { saleReturns, isSaleReturnsLoading, saleReturnsError, refreshSaleReturns } = useSaleReturns(queryParams);
     const { usersDropdown } = useUsersDropdown({ role: "cashier" }, showCashierFilter || isManager);
@@ -82,7 +82,7 @@ export default function SaleReturnHistoryPanel({ showCashierFilter = false, show
 
     const handleReprint = useCallback((payload) => {
         setPrintPayload(payload);
-        toggleManagerUnlockModal();
+        toggleManagerUnlockModal()
     }, []);
 
     const handleClosePrintModal = () => {
@@ -94,99 +94,105 @@ export default function SaleReturnHistoryPanel({ showCashierFilter = false, show
 
     const columns = [
         {
-            field: "srnNumber",
-            headerName: "SRN No",
+            field: 'srnNumber',
+            headerName: 'SRN No',
             minWidth: 180,
             flex: 1,
             renderCell: (params) => (
-                <Typography variant="body1" className="text-sm!">
+                <Typography variant='body1' className="text-sm!">
                     {params?.row?.srnNumber ?? "-"}
                 </Typography>
-            ),
+            )
         },
         {
-            field: "returnDate",
-            headerName: "Date",
+            field: 'returnDate',
+            headerName: 'Date',
             minWidth: 150,
             flex: 1,
             renderCell: (params) => (
-                <Typography variant="body1" className="text-sm!">
+                <Typography variant='body1' className="text-sm!">
                     {params?.row?.returnDate ?? "-"}
                 </Typography>
-            ),
+            )
         },
         {
-            field: "originalInvoiceNo",
-            headerName: "Original Invoice",
+            field: 'originalInvoiceNo',
+            headerName: 'Original Invoice',
             minWidth: 150,
             flex: 1,
             renderCell: (params) => (
-                <Typography variant="body1" className="text-sm!">
-                    {params.row.originalInvoiceNo ?? "-"}
+                <Typography variant='body1' className="text-sm!">
+                    {params.row.originalInvoiceNo ?? '-'}
                 </Typography>
-            ),
+            )
         },
         {
-            field: "customer",
-            headerName: "Customer",
+            field: 'customer',
+            headerName: 'Customer',
             minWidth: 150,
             flex: 1,
             renderCell: (params) => (
-                <Typography variant="body1" className="text-sm!">
+                <Typography variant='body1' className="text-sm!">
                     {getPersonDisplayName(params.row.customer)}
                 </Typography>
-            ),
+            )
         },
         {
-            field: "cashier",
-            headerName: "Cashier",
+            field: 'cashier',
+            headerName: 'Cashier',
             minWidth: 150,
             flex: 1,
             renderCell: (params) => (
-                <Typography variant="body1" className="text-sm!">
+                <Typography variant='body1' className="text-sm!">
                     {getPersonDisplayName(params.row.cashier)}
                 </Typography>
-            ),
+            )
         },
         {
-            field: "approvedBy",
-            headerName: "Approved By",
+            field: 'approvedBy',
+            headerName: 'Approved By',
             minWidth: 150,
             flex: 1,
             renderCell: (params) => (
-                <Typography variant="body1" className="text-sm!">
+                <Typography variant='body1' className="text-sm!">
                     {getPersonDisplayName(params.row.approvedBy)}
                 </Typography>
-            ),
+            )
         },
         {
-            field: "refundAmount",
-            headerName: "Refund",
+            field: 'refundAmount',
+            headerName: 'Refund',
             minWidth: 150,
             flex: 1,
             renderCell: (params) => (
-                <Typography variant="body1" className="text-sm!">
+                <Typography variant='body1' className="text-sm!">
                     {priceFormat(params.row.refundAmount)}
                 </Typography>
-            ),
+            )
         },
         {
-            field: "refundMode",
-            headerName: "Mode",
+            field: 'refundMode',
+            headerName: 'Mode',
             minWidth: 150,
             flex: 1,
             renderCell: (params) => (
-                <Typography variant="body1" className="text-sm!">
-                    {getPaymentModeLabel(params.row.refundMode ?? "cash")}
+                <Typography variant='body1' className="text-sm!">
+                    {getPaymentModeLabel(params.row.refundMode ?? 'cash')}
                 </Typography>
-            ),
+            )
         },
         {
-            field: "status",
-            headerName: "Status",
+            field: 'status',
+            headerName: 'Status',
             minWidth: 150,
             flex: 1,
-            renderCell: (params) => <Chip size="small" label={params.row.status || "-"} variant="outlined" />,
+            renderCell: (params) => (
+                <Chip
+                    size="small"
+                    label={params.row.status || "-"}
+                    variant="outlined"
+                />
+            )
         },
         {
             field: "actions",
@@ -198,7 +204,7 @@ export default function SaleReturnHistoryPanel({ showCashierFilter = false, show
                     <span className="rounded bg-blue-100 px-1 py-0.5 text-[9px] font-semibold text-blue-700 h-[16px]! w-fit">
                         Shift + V
                     </span>
-                </div>
+                </div >
             ),
             renderCell: (params) => (
                 <KitButton
@@ -218,7 +224,7 @@ export default function SaleReturnHistoryPanel({ showCashierFilter = false, show
         limit: EXPORT_LIMIT,
         ...(startDate && { startDate: startDate }),
         ...(endDate && { endDate: endDate }),
-        ...(cashierId && (showCashierFilter || isManager) && { cashierId: cashierId }),
+        ...((cashierId && (showCashierFilter || isManager)) && { cashierId: cashierId }),
         ...(customerPhone && { customerPhone: customerPhone.trim() }),
         ...(srnNumber && { srnNumber: srnNumber.trim() }),
         ...(originalInvoiceNo && { originalInvoiceNo: originalInvoiceNo.trim() }),
@@ -254,6 +260,7 @@ export default function SaleReturnHistoryPanel({ showCashierFilter = false, show
 
             if (type === "csv") {
                 downloadCsv(exportRows, `sale_returns_${timestamp}.csv`);
+
             } else {
                 downloadXlsx(exportRows, `sale_returns_${timestamp}.xlsx`, "Sale Returns");
             }
@@ -402,10 +409,10 @@ export default function SaleReturnHistoryPanel({ showCashierFilter = false, show
                 </div>
 
                 <Paper elevation={0} className="p-3 border border-gray-200 rounded-xl">
-                    <div className="grid grid-cols-2 items-end gap-x-2 gap-y-3 md:flex md:flex-wrap md:gap-y-7">
+                    <div className="flex flex-wrap gap-x-3 gap-y-6 items-end">
                         {(showCashierFilter || isManager) && (
                             <div className="w-52 relative">
-                                <ShortcutBadge shortcut="Alt + C" className="top-0 hidden md:block" />
+                                <ShortcutBadge shortcut="Alt + C" className="top-0" />
                                 <KitSelect
                                     ref={cashierRef}
                                     label="Cashier"
@@ -422,7 +429,7 @@ export default function SaleReturnHistoryPanel({ showCashierFilter = false, show
                             </div>
                         )}
                         <div className="relative">
-                            <ShortcutBadge shortcut="Alt + S" className="top-0 hidden md:block" />
+                            <ShortcutBadge shortcut="Alt + S" className="top-0" />
                             <KitTextField
                                 inputRef={startDateRef}
                                 size="small"
@@ -430,11 +437,11 @@ export default function SaleReturnHistoryPanel({ showCashierFilter = false, show
                                 label="Start"
                                 value={startDate}
                                 onChange={(e) => setStartDate(e.target.value)}
-                                className="w-full md:w-40"
+                                className="w-40"
                             />
                         </div>
                         <div className="relative">
-                            <ShortcutBadge shortcut="Alt + E" className="top-0 hidden md:block" />
+                            <ShortcutBadge shortcut="Alt + E" className="top-0" />
                             <KitTextField
                                 inputRef={endDateRef}
                                 size="small"
@@ -442,11 +449,11 @@ export default function SaleReturnHistoryPanel({ showCashierFilter = false, show
                                 label="End"
                                 value={endDate}
                                 onChange={(e) => setEndDate(e.target.value)}
-                                className="w-full md:w-40"
+                                className="w-40"
                             />
                         </div>
                         <div className="relative">
-                            <ShortcutBadge shortcut="Alt + P" className="top-0 hidden md:block" />
+                            <ShortcutBadge shortcut="Alt + P" className="top-0" />
                             <KitTextField
                                 inputRef={phoneRef}
                                 size="small"
@@ -455,11 +462,11 @@ export default function SaleReturnHistoryPanel({ showCashierFilter = false, show
                                 placeholderFontSize={14}
                                 value={customerPhone}
                                 onChange={(e) => setCustomerPhone(e.target.value)}
-                                className="w-full md:w-40"
+                                className="w-40"
                             />
                         </div>
                         <div className="relative">
-                            <ShortcutBadge shortcut="Alt + N" className="top-0 hidden md:block" />
+                            <ShortcutBadge shortcut="Alt + N" className="top-0" />
                             <KitTextField
                                 inputRef={numberRef}
                                 size="small"
@@ -468,11 +475,11 @@ export default function SaleReturnHistoryPanel({ showCashierFilter = false, show
                                 placeholderFontSize={14}
                                 value={srnNumber}
                                 onChange={(e) => setSrnNumber(e.target.value)}
-                                className="w-full md:w-40"
+                                className="w-40"
                             />
                         </div>
                         <div className="relative">
-                            <ShortcutBadge shortcut="Alt + I" className="top-0 hidden md:block" />
+                            <ShortcutBadge shortcut="Alt + I" className="top-0" />
                             <KitTextField
                                 inputRef={invoiceRef}
                                 size="small"
@@ -481,35 +488,35 @@ export default function SaleReturnHistoryPanel({ showCashierFilter = false, show
                                 placeholderFontSize={14}
                                 value={originalInvoiceNo}
                                 onChange={(e) => setOriginalInvoiceNo(e.target.value)}
-                                className="w-full md:w-44"
+                                className="w-44"
                             />
                         </div>
                         <div className="relative">
-                            <ShortcutBadge shortcut="Shift + C" className="-top-5! hidden md:block" />
+                            <ShortcutBadge shortcut="Shift + C" className="-top-5!" />
                             <KitButton
                                 size="small"
                                 variant="contained"
-                                className="w-full md:w-auto"
+                                className="w-auto"
                                 onClick={() => handleExport("csv")}
                             >
                                 Export as CSV
                             </KitButton>
                         </div>
                         <div className="relative">
-                            <ShortcutBadge shortcut="Shift + X" className="-top-5! hidden md:block" />
+                            <ShortcutBadge shortcut="Shift + X" className="-top-5!" />
                             <KitButton
                                 size="small"
                                 variant="contained"
-                                className="w-full md:w-auto"
+                                className="w-auto"
                                 onClick={() => handleExport("xlsx")}
                             >
                                 Export as XLSX
                             </KitButton>
                         </div>
                         <div className="relative">
-                            <ShortcutBadge shortcut="Alt + R" className="-top-5! hidden md:block" />
+                            <ShortcutBadge shortcut="Alt + R" className="-top-5!" />
                             <IconButton
-                                className="w-full md:w-10.5! h-7.5! rounded-sm! min-w-fit! p-1! border! border-blue-600!"
+                                className="w-10.5! h-7.5! rounded-sm! min-w-fit! p-1! border! border-blue-600!"
                                 onClick={() => refreshSaleReturns()}
                             >
                                 <KitIcon icon="tabler:refresh" className="text-xl! text-primary" />
@@ -531,7 +538,9 @@ export default function SaleReturnHistoryPanel({ showCashierFilter = false, show
                         error={!!saleReturnsError}
                         disableRowSelectionOnClick
                         getRowClassName={(params) =>
-                            params.indexRelativeToCurrentPage === activeRowIndex ? "active-row" : ""
+                            params.indexRelativeToCurrentPage === activeRowIndex
+                                ? "active-row"
+                                : ""
                         }
                         sx={(theme) => ({
                             "& .active-row": {
@@ -556,7 +565,11 @@ export default function SaleReturnHistoryPanel({ showCashierFilter = false, show
             </KitShow>
 
             <KitShow show={printModalOpen}>
-                <SrnPrintModal isOpen={printModalOpen} onClose={handleClosePrintModal} payload={printPayload} />
+                <SrnPrintModal
+                    isOpen={printModalOpen}
+                    onClose={handleClosePrintModal}
+                    payload={printPayload}
+                />
             </KitShow>
 
             <KitShow show={isManagerUnlockModalOpen}>

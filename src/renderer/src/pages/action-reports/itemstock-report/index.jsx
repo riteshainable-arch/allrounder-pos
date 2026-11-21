@@ -16,7 +16,7 @@ import { downloadCSV } from "../../../../../kit/utils/downloadCSV";
 
 export const DEFAULT_MAX_WOS = 8;
 
-export default function ItemStockReport({ divider = true }) {
+export default function ItemStockReport() {
     const productRef = useRef(null);
     const storeRef = useRef(null);
     const vendorRef = useRef(null);
@@ -282,7 +282,7 @@ export default function ItemStockReport({ divider = true }) {
 
     return (
         <div>
-            {divider && <Divider className="mb-3!" />}
+            <Divider className="mb-3!" />
             <div className="flex flex-col gap-3 w-full min-w-0">
                 <KitHeader
                     title="Item Stock Report"
@@ -293,9 +293,9 @@ export default function ItemStockReport({ divider = true }) {
                 />
 
                 <Paper elevation={0} className="p-3 border border-gray-200 rounded-xl">
-                    <div className="grid grid-cols-2 items-end gap-x-2 gap-y-3 md:flex md:flex-wrap md:gap-y-7">
+                    <div className="flex flex-wrap items-end gap-x-3 gap-y-7">
                         <div className="relative">
-                            <ShortcutBadge shortcut="Alt + I" className="top-0 hidden md:block" />
+                            <ShortcutBadge shortcut="Alt + I" className="top-0" />
                             <KitTextField
                                 inputRef={productRef}
                                 size="small"
@@ -305,15 +305,15 @@ export default function ItemStockReport({ divider = true }) {
                                 value={search}
                                 onChange={(e) => setSearch(e.target.value)}
                                 placeholder="Item Code / Item Name / Brand Name"
-                                className="w-full md:w-44"
+                                className="w-44"
                             />
                         </div>
-                        <div className="relative w-full min-w-0 md:w-60">
-                            <ShortcutBadge shortcut="Alt + S" className="top-0 hidden md:block" />
+                        <div className="relative w-60">
+                            <ShortcutBadge shortcut="Alt + S" className="top-0" />
                             <KitSelect
                                 ref={storeRef}
                                 label="Store Name"
-                                placeholder="Store Name"
+                                placeholder="Select Store Name"
                                 size="small"
                                 placeholderFontSize={14}
                                 inputFontSize={14}
@@ -324,12 +324,12 @@ export default function ItemStockReport({ divider = true }) {
                                 onChange={(option) => setStoreId(option?.value ?? "")}
                             />
                         </div>
-                        <div className="relative w-full min-w-0 md:w-60">
-                            <ShortcutBadge shortcut="Alt + V" className="top-0 hidden md:block" />
+                        <div className="relative w-60">
+                            <ShortcutBadge shortcut="Alt + V" className="top-0" />
                             <KitSelect
                                 ref={vendorRef}
                                 label="Vendor Name"
-                                placeholder="Vendor Name"
+                                placeholder="Select Vendor Name"
                                 size="small"
                                 placeholderFontSize={14}
                                 inputFontSize={14}
@@ -341,12 +341,12 @@ export default function ItemStockReport({ divider = true }) {
                             />
                         </div>
                         <div className="relative">
-                            <ShortcutBadge shortcut="Shift + E" className="-top-5! hidden md:block" />
+                            <ShortcutBadge shortcut="Shift + E" className="-top-5!" />
                             <KitButton
                                 ref={exportRef}
                                 size="small"
                                 variant="contained"
-                                className="w-full md:w-auto"
+                                className="w-auto"
                                 disabled={exportProductLoading}
                                 isLoading={exportProductLoading}
                                 onClick={handleExport}
@@ -355,11 +355,11 @@ export default function ItemStockReport({ divider = true }) {
                             </KitButton>
                         </div>
                         <div className="relative">
-                            <ShortcutBadge shortcut="Alt + R" className="-top-5! hidden md:block" />
+                            <ShortcutBadge shortcut="Alt + R" className="-top-5" />
                             <IconButton
                                 ref={refreshRef}
                                 onClick={() => refreshItemStockReport()}
-                                className="w-full md:w-10.5! h-7.5! rounded-sm! min-w-fit! p-1! border! border-blue-600!"
+                                className="w-10.5! h-7.5! rounded-sm! min-w-fit! p-1! border! border-blue-600!"
                             >
                                 <KitIcon icon="tabler:refresh" className="text-xl! text-primary" />
                             </IconButton>

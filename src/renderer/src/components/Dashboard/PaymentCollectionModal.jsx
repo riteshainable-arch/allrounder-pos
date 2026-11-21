@@ -93,6 +93,7 @@ export default function PaymentCollectionModal({
     onRemarkChange,
     cartRows = [],
     storeId,
+    onSyncSchemeItems,
 }) {
     const cashRef = useRef(null);
     const upiRef = useRef(null);
@@ -120,6 +121,9 @@ export default function PaymentCollectionModal({
     const [schemeIds, setSchemeIds] = useState([]);
     const [draftSchemeIds, setDraftSchemeIds] = useState([]);
     const [totalSchemeDiscount, setTotalSchemeDiscount] = useState(null);
+    // What the server evaluated for the chosen offer. It is sent with the bill so the discount is
+    // recorded: item offers as tagged lines at the offer price, bill offers as `billingSchemeId`.
+    const [schemeBill, setSchemeBill] = useState(null);
     const [schemeEvaluationError, setSchemeEvaluationError] = useState("");
 
     const { globalCouponEvaluate, isGlobalCouponEvaluate } = useGlobalCouponEvaluate();
@@ -140,7 +144,19 @@ export default function PaymentCollectionModal({
         [payableAfterDiscounts, srnAmount]
     );
 
+    // Cart total of the rows, used to estimate the new net payable right after scheme items are added / removed
+    // (the parent re-renders with the real netPayable a moment later).
+    const rowsTotal = (rows) =>
+        rows.reduce(
+            (sum, item) =>
+                item.isOfferItem
+                    ? sum
+                    : sum + Number(item.totalPrice ?? Number(item.price || 0) * Number(item.quantity || 0)),
+            0
+        );
+
     const resetState = () => {
+        onSyncSchemeItems?.(null, []);
         schemeEvaluationRequestRef.current += 1;
         couponValidationRequestRef.current += 1;
         setPaymentRows(createDefaultPaymentRows(netPayable));
@@ -157,6 +173,7 @@ export default function PaymentCollectionModal({
         setSchemeIds([]);
         setDraftSchemeIds([]);
         setTotalSchemeDiscount(null);
+        setSchemeBill(null);
         setSchemeEvaluationError("");
     };
 
@@ -167,17 +184,35 @@ export default function PaymentCollectionModal({
         setShowSchemeDialog(true);
     };
 
-    const handleApplySchemeSelection = async (selectedIds) => {
+    const handleApplySchemeSelection = async (selectedIds, selectedSchemes = []) => {
         const nextSchemeIds = selectedIds.slice(0, 1);
         setSchemeIds(nextSchemeIds);
         setTotalSchemeDiscount(null);
+        setSchemeBill(null);
         setSchemeEvaluationError("");
 
         const requestId = ++schemeEvaluationRequestRef.current;
+        // Item offers add their item to the bill when it is not there yet.
+        const selectedScheme = selectedSchemes[0];
+        const evaluationRows = onSyncSchemeItems
+            ? await onSyncSchemeItems(
+                  nextSchemeIds[0] ?? null,
+                  // Item offers: the scheme item (first one) is added only if it is not on the bill yet.
+                  selectedScheme?.autoAddItems?.length
+                      ? selectedScheme.autoAddItems
+                      : selectedScheme?.items?.[0]
+                        ? [{ ...selectedScheme.items[0], qty: selectedScheme.eligibleQty || 1 }]
+                        : []
+              )
+            : cartRows;
+        const estimatedNetPayable = Math.max(
+            0,
+            Number(netPayable || 0) + rowsTotal(evaluationRows) - rowsTotal(cartRows)
+        );
         try {
             const response = await globalCouponEvaluate({
                 storeId,
-                cartItems: buildEvaluateCouponItems(cartRows),
+                cartItems: buildEvaluateCouponItems(evaluationRows),
                 ...(nextSchemeIds.length > 0 && { schemeIds: nextSchemeIds }),
                 date: format(new Date(), "yyyy-MM-dd"),
             });
@@ -191,11 +226,24 @@ export default function PaymentCollectionModal({
             const { couponDiscountAmount: currentCouponDiscount, srnAmount: currentSrnAmount } =
                 paymentAdjustmentsRef.current;
             setTotalSchemeDiscount(schemeDiscount);
+            const evaluation = response?.data ?? {};
+            setSchemeBill(
+                schemeDiscount > 0
+                    ? {
+                          billingSchemeId: evaluation.billDiscount?.schemeId ?? null,
+                          cartItems:
+                              Number(evaluation.itemSchemeDiscount || 0) > 0 &&
+                              Array.isArray(evaluation.cartItems)
+                                  ? evaluation.cartItems
+                                  : null,
+                      }
+                    : null
+            );
             setPaymentRows(
                 createDefaultPaymentRows(
                     Math.max(
                         0,
-                        Number(netPayable || 0) -
+                        estimatedNetPayable -
                             currentCouponDiscount -
                             schemeDiscount -
                             currentSrnAmount
@@ -216,25 +264,33 @@ export default function PaymentCollectionModal({
             setTotalSchemeDiscount(null);
             setPaymentRows(
                 createDefaultPaymentRows(
-                    Math.max(0, Number(netPayable || 0) - currentCouponDiscount - currentSrnAmount)
+                    Math.max(0, estimatedNetPayable - currentCouponDiscount - currentSrnAmount)
                 )
             );
             setSchemeEvaluationError(errorMessage || "Unable to evaluate billing schemes.");
         }
     };
 
-    const handleRemoveScheme = () => {
+    const handleRemoveScheme = async () => {
         schemeEvaluationRequestRef.current += 1;
         setSchemeIds([]);
         setDraftSchemeIds([]);
         setTotalSchemeDiscount(null);
+        setSchemeBill(null);
         setSchemeEvaluationError("");
+
+        // Take back any item the offer had added to the bill.
+        const rowsWithoutSchemeItems = onSyncSchemeItems ? await onSyncSchemeItems(null, []) : cartRows;
+        const estimatedNetPayable = Math.max(
+            0,
+            Number(netPayable || 0) + rowsTotal(rowsWithoutSchemeItems) - rowsTotal(cartRows)
+        );
 
         const { couponDiscountAmount: currentCouponDiscount, srnAmount: currentSrnAmount } =
             paymentAdjustmentsRef.current;
         setPaymentRows(
             createDefaultPaymentRows(
-                Math.max(0, Number(netPayable || 0) - currentCouponDiscount - currentSrnAmount)
+                Math.max(0, estimatedNetPayable - currentCouponDiscount - currentSrnAmount)
             )
         );
     };
@@ -294,12 +350,18 @@ export default function PaymentCollectionModal({
         return Math.max(0, totalReceived - collectionPayable);
     }, [isCashOnlyPayment, cashAmount, totalReceived, collectionPayable]);
 
+    // Only cash can be handed back as change, so non-cash (UPI / card / Amex)
+    // must never add up to more than what is payable.
+    const nonCashReceived = totalReceived - cashAmount;
+    const hasNonCashOverpayment = nonCashReceived > collectionPayable;
+
     const canReceivePayment = useMemo(() => {
+        if (hasNonCashOverpayment) return false;
         if (collectionPayable === 0) return true;
         if (totalReceived <= 0) return false;
         if (hasCreditSale) return true;
         return totalReceived >= collectionPayable;
-    }, [totalReceived, hasCreditSale, collectionPayable]);
+    }, [totalReceived, hasCreditSale, collectionPayable, hasNonCashOverpayment]);
 
     const canGenerateInvoice = canReceivePayment;
 
@@ -462,24 +524,22 @@ export default function PaymentCollectionModal({
 
         const toSplit = roundToWholeRupee(payable);
 
-        if (!srnAdjustmentInput.trim()) {
-            const paid = (i) => roundToWholeRupee(Number(rows[i].amount || 0));
-            if (index === 0) {
-                const rest = Math.max(0, toSplit - paid(0));
-                rows[1].amount = rest > 0 ? rest : "";
-                rows[2].amount = "";
-                rows[3].amount = "";
-            }
-            if (index > 0 && paid(0) > 0) {
-                const rest = Math.max(0, toSplit - paid(1) - paid(2) - paid(3));
-                rows[0].amount = rest > 0 ? rest : "";
-            } else if (index === 1) {
-                const rest = Math.max(0, toSplit - paid(0) - paid(1) - paid(3));
-                rows[2].amount = rest > 0 ? rest : "";
-            } else if (index === 2 || index === 3) {
-                const rest = Math.max(0, toSplit - paid(0) - paid(2) - paid(3));
-                rows[1].amount = rest > 0 ? rest : "";
-            }
+        const paid = (i) => roundToWholeRupee(Number(rows[i].amount || 0));
+        if (index === 0) {
+            const rest = Math.max(0, toSplit - paid(0));
+            rows[1].amount = rest > 0 ? rest : "";
+            rows[2].amount = "";
+            rows[3].amount = "";
+        }
+        if (index > 0 && paid(0) > 0) {
+            const rest = Math.max(0, toSplit - paid(1) - paid(2) - paid(3));
+            rows[0].amount = rest > 0 ? rest : "";
+        } else if (index === 1) {
+            const rest = Math.max(0, toSplit - paid(0) - paid(1) - paid(3));
+            rows[2].amount = rest > 0 ? rest : "";
+        } else if (index === 2 || index === 3) {
+            const rest = Math.max(0, toSplit - paid(0) - paid(2) - paid(3));
+            rows[1].amount = rest > 0 ? rest : "";
         }
 
         setPaymentRows(rows);
@@ -534,6 +594,8 @@ export default function PaymentCollectionModal({
             couponCode: couponValidation?.coupon?.code || null,
             couponDiscountAmount: roundToWholeRupee(couponDiscountAmount),
             schemeDiscountAmount: roundToDecimals(schemeDiscountAmount),
+            billingSchemeId: schemeDiscountAmount > 0 ? schemeBill?.billingSchemeId ?? null : null,
+            schemeCartItems: schemeDiscountAmount > 0 ? schemeBill?.cartItems ?? null : null,
         };
     };
 
@@ -1142,6 +1204,12 @@ export default function PaymentCollectionModal({
 
                     {balanceToReturn > 0 &&
                         summaryRow("Balance to Return", priceFinalAmountFormat(balanceToReturn), "text-green-600!")}
+
+                    {hasNonCashOverpayment && (
+                        <div className="mt-0.5 text-center text-[11px] font-semibold text-red-600">
+                            UPI / Card / Amex total exceeds payable amount ({priceFinalAmountFormat(collectionPayable)})
+                        </div>
+                    )}
 
                     {canGenerateInvoice && remainingAmount === 0 && (
                         <div className="mt-0.5 text-center text-[11px] font-semibold text-green-700">

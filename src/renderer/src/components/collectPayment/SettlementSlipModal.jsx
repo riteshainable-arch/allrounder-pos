@@ -1,6 +1,6 @@
 import { Backdrop, CircularProgress, Dialog, DialogContent } from "@mui/material";
 import { format } from "date-fns";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { ToWords } from "to-words";
 import { toast } from "react-toastify";
 import KitButton from "../../../../kit/components/KitButton/KitButton";
@@ -148,18 +148,16 @@ const DayEndSummaryPanel = ({ slip, s }) => {
 
             <SummarySection title="Day Summary" className="border-sky-200">
                 <div className="grid grid-cols-2 gap-x-4">
-                    <SummaryRow label="Total Bills" value={s.totalBills} />
-                    <SummaryRow label="Sale Return Bills" value={s.returnBills} />
                     <SummaryRow label="Cash Sale" value={priceFormat(s.cashSale)} />
                     <SummaryRow label="Card Sale" value={priceFormat(s.cardSale)} />
                     <SummaryRow label="UPI Sale" value={priceFormat(s.upiSale)} />
                     <SummaryRow label="Amex / Sodexo Sale" value={priceFormat(s.sodexoSale)} />
                     {s.otherSale > 0 && <SummaryRow label="Other" value={priceFormat(s.otherSale)} />}
-                    {s.loyalty > 0 && <SummaryRow label="Loyalty" value={priceFormat(s.loyalty)} />}
-                    {s.coupon > 0 && <SummaryRow label="Coupon" value={priceFormat(s.coupon)} />}
-                    {s.srnAdjustment > 0 && <SummaryRow label="SRN Adjusted" value={priceFormat(s.srnAdjustment)} />}
-                    <SummaryRow label="Bill Amount" value={priceFormat(s.billAmount)} />
-                    <SummaryRow label="Sale Return" value={`-${priceFormat(s.saleReturn)}`} />
+                    <SummaryRow label="Total Amount (collected)" value={priceFormat(s.billAmount)} />
+                    <SummaryRow label="Total Bills" value={s.totalBills} />
+                    <SummaryRow label="Sale Return Bills" value={s.returnBills} />
+                    <SummaryRow label="Total Bill Amount" value={priceFormat(s.totalBillAmount)} />
+                    <SummaryRow label="Sale Return Adj" value={`-${priceFormat(s.saleReturnAdj)}`} />
                     <SummaryRow label="Total Amount" value={priceFormat(s.totalAmount)} />
                     <SummaryRow label="Total Collection" value={priceFormat(s.totalCollection)} />
                 </div>
@@ -172,7 +170,6 @@ const DayEndSummaryPanel = ({ slip, s }) => {
                     {s.cashRefund > 0 && <SummaryRow label="− Cash Refund" value={priceFormat(s.cashRefund)} />}
                     <SummaryRow label="− Advance + Voucher" value={priceFormat(s.advanceAmount + s.voucherAmount)} />
                     <SummaryRow label="Expected Cash" value={priceFormat(s.expectedCash)} />
-                    <SummaryRow label="Counter + Submitted" value={priceFormat(s.actualCash)} />
                     <SummaryRow
                         label={s.shortage > 0 ? "Shortage" : "Excess"}
                         value={priceFormat(s.shortage || s.excess)}
@@ -187,11 +184,27 @@ const DayEndSummaryPanel = ({ slip, s }) => {
 export default function SettlementSlipModal({ isOpen, onClose, slip, store }) {
     const userData = useUser();
     const [isPrinting, setIsPrinting] = useState(false);
-    const { dayEndList, isDayEndListLoading } = useGetAllDayEnd(
-        dayEndParams({ date: slip?.date, cashierId: slip?.userId }),
-        Boolean(isOpen && slip?.date)
-    );
+    const { dayEndList, isDayEndListLoading, isValidatingDayEndList, dayEndListError, refreshDayEndList } =
+        useGetAllDayEnd(dayEndParams({ date: slip?.date, cashierId: slip?.userId }), Boolean(isOpen && slip?.date));
     const dayEnd = dayEndList?.success && dayEndList.data ? dayEndList.data : slip?.dayEnd;
+
+    // The end-day form already fetched these totals earlier in the session; always take fresh ones for the slip.
+    useEffect(() => {
+        if (isOpen && slip?.date) refreshDayEndList?.();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [isOpen, slip?.date]);
+
+    useEffect(() => {
+        if (!isOpen || isValidatingDayEndList || isDayEndListLoading) return;
+        if (dayEndListError || (dayEndList && !dayEndList.success)) {
+            toast.error(
+                `Live day totals could not be loaded (${
+                    dayEndListError?.message || dayEndList?.message || "check login / server"
+                }). The slip may be showing saved numbers.`
+            );
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [isOpen, isValidatingDayEndList, isDayEndListLoading, dayEndListError, dayEndList]);
     const s = buildSettlementSummary({ dayEnd: dayEnd || {}, ...(slip?.inputs || {}) });
 
     const addressLines = [store?.address, [store?.city, store?.pincode].filter(Boolean).join(" - ")].filter(Boolean);
@@ -210,7 +223,7 @@ export default function SettlementSlipModal({ isOpen, onClose, slip, store }) {
         }
     };
 
-    if (isOpen && isDayEndListLoading) {
+    if (isOpen && (isDayEndListLoading || isValidatingDayEndList)) {
         return (
             <Backdrop
                 open
@@ -266,7 +279,6 @@ export default function SettlementSlipModal({ isOpen, onClose, slip, store }) {
                                 <Line label="NAME" value={slip?.cashierName || "-"} />
                                 <Line label="USER NAME" value={userName} />
                                 <Line label="S.DATE" value={formatDate(slip?.date, "dd-MMM-yyyy")} />
-                                <Line label="TOTAL BILLS" value={s.totalBills} />
                             </div>
                             <Dashed />
 
@@ -278,18 +290,19 @@ export default function SettlementSlipModal({ isOpen, onClose, slip, store }) {
                             <Line label="AMEX/SODEXO AMT" value={amount(s.sodexoSale)} />
                             {/* <Line label="AMEX/SODEXO ENT" value={amount(s.sodexoEntered)} /> */}
                             {s.otherSale > 0 && <Line label="OTHER AMOUNT" value={amount(s.otherSale)} />}
-                            {s.loyalty > 0 && <Line label="LOYALTY" value={amount(s.loyalty)} />}
-                            {s.coupon > 0 && <Line label="COUPON" value={amount(s.coupon)} />}
-                            {s.srnAdjustment > 0 && <Line label="SRN ADJUSTED" value={amount(s.srnAdjustment)} />}
-                            <Line label="BILL AMOUNT" value={amount(s.billAmount)} />
-                            <Line label="SALE RETURN ADJ" value={s.saleReturn > 0 ? `-${amount(s.saleReturn)}` : amount(0)} />
+                            <Line label="TOTAL AMOUNT" value={amount(s.billAmount)} />
 
-                            <div className="my-2 text-center text-[13px] font-bold">
+                            <div className="my-2 text-center text-[14px] font-bold">
+                                <div>TOTAL BILL : {s.totalBills}</div>
+                                <div>TOTAL BILL AMOUNT : {amount(s.totalBillAmount)}</div>
+                            </div>
+                            <Line label="SALE RETURN ADJ" value={amount(s.saleReturnAdj)} />
+
+                            <div className="my-2 text-center text-[14px] font-bold">
                                 TOTAL AMOUNT : {amount(s.totalAmount)}
                             </div>
 
                             <Line label="SALE RETURN TOBE" value={amount(s.saleReturn)} />
-                            <Line label="TOTAL BILLS" value={s.totalBills} />
                             <Dashed />
                             <Line label="OPENING CASH" value={amount(s.openingCash)} />
                             <Line label="+ CASH SALE" value={amount(s.cashSale)} />
@@ -300,7 +313,6 @@ export default function SettlementSlipModal({ isOpen, onClose, slip, store }) {
                             <Dashed />
                             <Line label="COUNTER SUMMARY" value={amount(s.counterCash)} />
                             <Line label="SUBMITTED SUMMARY" value={amount(s.submittedCash)} />
-                            <Line label="TOTAL CASH" value={amount(s.actualCash)} />
                             <div className="mt-1 text-[13px] font-bold">
                                 <Line label="SHORTAGE" value={amount(s.shortage)} />
                                 <Line label="EXCESS" value={amount(s.excess)} />

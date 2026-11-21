@@ -3,11 +3,11 @@ import useSWRMutation from 'swr/mutation'
 import { createOne } from '../fetchers'
 import { swrMutationConfig } from '../../../configs/swrConfigs'
 
-const useSWRCreateOne = ({ path, key, apiVersion, timeout }) => {
+const useSWRCreateOne = ({ path, key, apiVersion }) => {
   const { data, error, trigger, reset, isMutating } = useSWRMutation(
     key ? [path, key] : [path],
     ([name], { arg }) =>
-      createOne(name, arg.body, arg.params, arg.headers, apiVersion, timeout)
+      createOne(name, arg.body, arg.params, arg.headers, apiVersion)
   )
 
   const create = useCallback((record, options) => {

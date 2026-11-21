@@ -77,25 +77,44 @@ export const buildSettlementSummary = ({
     sodexoEntered = 0,
 }) => {
     const saleReturn = round2(dayEnd.refunds?.total);
-    const totalAmount = round2(dayEnd.totalBillValue);
+    // Bill values as the Invoices report shows them (sale bills / return bills). Older servers do not send
+    // them, so fall back to the payment based figures.
+    const hasInvoiceValues = dayEnd.salesBillValue !== null && dayEnd.salesBillValue !== undefined;
+    const saleReturnAdj = hasInvoiceValues ? round2(dayEnd.returnBillValue) : saleReturn;
+    const totalAmount = hasInvoiceValues ? round2(dayEnd.salesBillValue) : round2(dayEnd.totalBillValue);
+    // Total bill amount = every bill of the day including the sale return bills; the return is then
+    // taken off to reach the TOTAL AMOUNT.
+    const totalBillAmount = round2(totalAmount + saleReturnAdj);
     // dayEnd.cash / card / upi / sodexo are net of return refunds; the slip shows sales and the return on its own line.
     const cash = round2(dayEnd.cash);
     const cashRefund = round2(dayEnd.refunds?.cash);
 
     const expectedCash = round2(toNumber(openingCash) + cash - toNumber(advanceAmount) - toNumber(voucherAmount));
+    // Counter cash stays in the drawer; only the submitted cash leaves it. So the cash that
+    // must be submitted is Expected Cash - Counter Cash, and Short / Excess is judged by
+    // comparing the Submitted Summary against that figure (no combined "total cash" line).
+    const cashToSubmit = round2(expectedCash - toNumber(counter.totalCash));
     const actualCash = round2(toNumber(counter.totalCash) + toNumber(submitted.totalCash));
-    const difference = round2(actualCash - expectedCash);
+    const difference = round2(toNumber(submitted.totalCash) - cashToSubmit);
+
+    const cardSale = round2(toNumber(dayEnd.card) + toNumber(dayEnd.refunds?.card));
+    const upiSale = round2(toNumber(dayEnd.upi) + toNumber(dayEnd.refunds?.upi));
+    const sodexoSale = round2(toNumber(dayEnd.sodexo) + toNumber(dayEnd.refunds?.sodexo));
+    const otherSale = round2(toNumber(dayEnd.other) + toNumber(dayEnd.refunds?.other));
+    const cashSale = round2(cash + cashRefund);
+    // Billing amount = what was collected in cash + card + UPI + Amex/Sodexo (+ other modes).
+    const billAmount = round2(cashSale + cardSale + upiSale + sodexoSale + otherSale);
 
     return {
         totalBills: toNumber(dayEnd.totalOrders),
         returnBills: toNumber(dayEnd.returnOrders),
         cash,
         cashRefund,
-        cashSale: round2(cash + cashRefund),
-        cardSale: round2(toNumber(dayEnd.card) + toNumber(dayEnd.refunds?.card)),
-        upiSale: round2(toNumber(dayEnd.upi) + toNumber(dayEnd.refunds?.upi)),
-        sodexoSale: round2(toNumber(dayEnd.sodexo) + toNumber(dayEnd.refunds?.sodexo)),
-        otherSale: round2(toNumber(dayEnd.other) + toNumber(dayEnd.refunds?.other)),
+        cashSale,
+        cardSale,
+        upiSale,
+        sodexoSale,
+        otherSale,
         card: round2(dayEnd.card),
         cardEntered: round2(cardEntered),
         upi: round2(dayEnd.upi),
@@ -106,8 +125,10 @@ export const buildSettlementSummary = ({
         loyalty: round2(dayEnd.loyalty),
         coupon: round2(dayEnd.coupon),
         srnAdjustment: round2(dayEnd.srnAdjustment),
-        billAmount: round2(totalAmount + saleReturn),
+        billAmount,
         saleReturn,
+        saleReturnAdj,
+        totalBillAmount,
         totalAmount,
         totalCollection: round2(dayEnd.totalCollection),
         openingCash: round2(openingCash),

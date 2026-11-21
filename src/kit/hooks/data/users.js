@@ -3,11 +3,9 @@ import useSWRCreateOne from "./swr/useSWRCreateOne";
 import useSWRMutation from "swr/mutation";
 import { API_VERSION, fetchAll } from "./fetchers";
 import API from "./services/axiosService";
-import { useSWRUpdateOne } from "./swr/useSWRUpdateOne";
 
 const USERS_PATH_NAME = "admin/users";
 const USERS_DROPDOWN_PATH = "admin/users/dropdown";
-const USERS_LIST_PATH = "admin/users/list";
 
 const useUsersDropdown = (params = {}, shouldFetch = true) => {
     const { data, error, isLoading, mutate } = useSWR(
@@ -77,83 +75,10 @@ const useUpdateUserRole = () => {
     };
 };
 
-const useGetAllUsersList = (params, shouldFetch = true) => {
-    const { data, error, isValidating, isLoading, mutate } = useSWR(
-        shouldFetch ? [`${API_VERSION}/${USERS_LIST_PATH}`, params] : null,
-        () => fetchAll(USERS_LIST_PATH, params),
-        {
-            revalidateOnMount: true,
-            revalidateIfStale: true,
-            revalidateOnFocus: false,
-            revalidateOnReconnect: false,
-            keepPreviousData: true,
-        },
-    );
-
-    return {
-        UsersList: data,
-        UsersListError: error,
-        isUsersListLoading: isLoading,
-        isValidatingUsersList: isValidating,
-        refreshpUsersList: mutate,
-    };
-};
-
-const useUpdateUserStatus = (id = "") => {
-    const { data, error, isMutating, reset, update } = useSWRUpdateOne({
-        path: USERS_PATH_NAME,
-        id,
-        status: true,
-    });
-
-    return {
-        data,
-        error,
-        isUpdatingUserStatus: isMutating,
-        reset,
-        update,
-    };
-};
-
-const useUpdateUserPassword = (id = "") => {
-    const { data, error, isMutating, reset, update } = useSWRUpdateOne({
-        path: USERS_PATH_NAME,
-        id,
-        password: true,
-    });
-
-    return {
-        data,
-        error,
-        isUpdatingUserPassword: isMutating,
-        reset,
-        update,
-    };
-};
-
-const useUpdateUser = (id = "") => {
-    const { data, error, isMutating, reset, update } = useSWRUpdateOne({
-        path: USERS_PATH_NAME,
-        id,
-    });
-
-    return {
-        data,
-        error,
-        isUpdatingUser: isMutating,
-        reset,
-        update,
-    };
-};
-
 export {
     useUsersDropdown,
     useUsersList,
     useCreateUser,
     useUpdateUserRole,
     updateUser,
-    useGetAllUsersList,
-    useUpdateUserStatus,
-    useUpdateUserPassword,
-    useUpdateUser,
 };

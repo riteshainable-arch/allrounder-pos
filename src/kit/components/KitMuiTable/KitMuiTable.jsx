@@ -136,7 +136,7 @@ export default function KitMuiTable({
     return (
         <Paper elevation={0} sx={{ width: "100%", overflow: "hidden", ...sx }}>
             <StyledTableContainer>
-                <Table stickyHeader sx={{ minWidth: "max-content", tableLayout: "auto", zIndex:50 }}>
+                <Table stickyHeader sx={{ minWidth: "max-content", tableLayout: "auto" }}>
                     <TableHead>
                         <TableRow>
                             {columns.map((column) => (

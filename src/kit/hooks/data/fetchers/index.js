@@ -9,11 +9,10 @@ const fetchAll = async (
   params,
   headers,
   apiVersion = API_VERSION,
-  timeout,
 ) => {
   const path = `${apiVersion}/${name}`
 
-  return API.get(path, params, headers, timeout)
+  return API.get(path, params, headers)
 }
 
 const fetchOne = async (
@@ -34,12 +33,11 @@ const createOne = async (
   params,
   headers,
   apiVersion = API_VERSION,
-  timeout,
 ) => {
   const path = `${apiVersion}/${name}`
 
 
-  return API.post(path, body, params, headers, timeout)
+  return API.post(path, body, params, headers)
 }
 
 const updateOne = async (
@@ -50,18 +48,14 @@ const updateOne = async (
   headers,
   apiVersion = API_VERSION,
   status,
-  password,
-  method = "PATCH",
 ) => {
   let path
   if (status) {
     path = `/${apiVersion}/${name}/${id}/status`;
-  } else if (password) {
-    path = `/${apiVersion}/${name}/${id}/password`;
   } else {
     path = `/${apiVersion}/${name}/${id}`;
   }
-  return API[method.toLowerCase()](path, body, params, headers);
+  return API.patch(path, body, params, headers);
 };
 
 const deleteOne = async (

@@ -7,7 +7,7 @@ const KitDrawer = ({ isOpen, isOverlap = false, actions, children, onClose, titl
      const theme = useTheme();
     return (
         <div
-            className={`fixed inset-0 flex items-center justify-end transition-all duration-300 z-50 no-doc-scroll ${isOpen ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"}`}
+            className={`fixed inset-0 flex items-center justify-end transition-all duration-300 z-drawer no-doc-scroll ${isOpen ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"}`}
             style={{ visibility: isOpen ? "visible" : "hidden" }}
         >
             {/* Overlay */}
