@@ -5,8 +5,10 @@ const isBusy = (status) => status === "checking" || status === "available" || st
 
 export default function AppUpdateControl() {
     const downloadStartedRef = useRef(false);
+    const updateCheckStartedRef = useRef(false);
     const [version, setVersion] = useState("");
     const [canUpdate, setCanUpdate] = useState(false);
+    const [isUpdateAvailable, setIsUpdateAvailable] = useState(false);
     const [updateStatus, setUpdateStatus] = useState({ status: "idle" });
 
     useEffect(() => {
@@ -23,7 +25,18 @@ export default function AppUpdateControl() {
 
         api?.canUpdateApp?.()
             .then((supported) => {
-                if (isMounted) setCanUpdate(supported);
+                if (!isMounted) return;
+
+                setCanUpdate(supported);
+                if (supported && !updateCheckStartedRef.current) {
+                    updateCheckStartedRef.current = true;
+                    setUpdateStatus({ status: "checking" });
+                    api.checkForAppUpdates?.().catch((error) => {
+                        if (!isMounted) return;
+                        setUpdateStatus({ status: "idle" });
+                        toast.error(error?.message || "Could not check for app updates.");
+                    });
+                }
             })
             .catch((error) => {
                 console.error("Failed to check update support:", error);
@@ -34,6 +47,7 @@ export default function AppUpdateControl() {
 
             if (status.status === "available" && !downloadStartedRef.current) {
                 downloadStartedRef.current = true;
+                setIsUpdateAvailable(true);
                 setUpdateStatus({ status: "downloading", percent: 0 });
 
                 api.downloadAppUpdate().catch((error) => {
@@ -49,6 +63,7 @@ export default function AppUpdateControl() {
 
             if (status.status === "error") {
                 downloadStartedRef.current = false;
+                setIsUpdateAvailable(false);
                 toast.error(status.message || "Could not update the app.");
                 setUpdateStatus({ status: "idle" });
                 return;
@@ -56,9 +71,13 @@ export default function AppUpdateControl() {
 
             if (status.status === "not-available") {
                 downloadStartedRef.current = false;
-                toast.info("You have the latest version.");
+                setIsUpdateAvailable(false);
                 setUpdateStatus({ status: "idle" });
                 return;
+            }
+
+            if (status.status === "downloaded") {
+                setIsUpdateAvailable(true);
             }
 
             setUpdateStatus(status);
@@ -105,7 +124,7 @@ export default function AppUpdateControl() {
                     <button
                         type="button"
                         onClick={handleUpdateClick}
-                        disabled={isBusy(updateStatus.status)}
+                        disabled={!isUpdateAvailable || isBusy(updateStatus.status)}
                         className="cursor-pointer whitespace-nowrap rounded-sm border border-blue-600 px-2 py-1 text-blue-600 disabled:cursor-wait disabled:opacity-60"
                     >
                         {buttonLabel}
