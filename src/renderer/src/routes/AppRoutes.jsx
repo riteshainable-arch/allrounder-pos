@@ -141,7 +141,6 @@ function AppShell({ mode, onModeChange }) {
                                         {format(currentDateTime, "hh:mm a")}
                                     </div>
                                 </div>
-                                Anil
                                 <AppUpdateControl />
                                 {/* <div className="flex h-7 items-end translate-y-1">
                                     <MaterialUISwitch

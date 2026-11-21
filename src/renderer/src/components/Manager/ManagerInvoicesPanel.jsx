@@ -235,19 +235,29 @@ export default function ManagerInvoicesPanel() {
             renderCell: (params) => formatBillDateTime(params?.row?.date, params?.row?.createdAt),
         },
         {
+            field: "customer",
             headerName: "Customer",
-            field: 'busyNumber',
-            headerName: 'BUSY Inv No',
+            minWidth: 150,
+            flex: 1,
+            renderCell: (params) => (
+                <Typography variant="body1" className="text-sm!">
+                    {getCustomerLabel(params.row)}
+                </Typography>
+            ),
+        },
+        {
+            field: "busyNumber",
+            headerName: "BUSY Inv No",
             minWidth: 130,
             flex: 0.7,
             renderCell: (params) => (
-                <Typography variant='body1' className="text-sm!">
+                <Typography variant="body1" className="text-sm!">
                     {params?.row?.busyNumber || "-"}
                     {params?.row?.source === "BUSY" && (
                         <span className="ml-1 rounded bg-blue-50 px-1 text-[10px] text-blue-700">From BUSY</span>
                     )}
                 </Typography>
-            )
+            ),
         },
         {
             field: "phone",
@@ -502,7 +512,7 @@ export default function ManagerInvoicesPanel() {
                 <Paper elevation={0} className="p-3 border border-gray-200 rounded-xl">
                     <div className="grid grid-cols-2 items-end gap-x-2 gap-y-3 md:flex md:flex-wrap md:gap-y-7">
                         <div className="relative">
-                            <ShortcutBadge shortcut="Alt + O" className="-top-5 hidden md:block"/>
+                            <ShortcutBadge shortcut="Alt + O" className="-top-5 hidden md:block" />
                             <KitDebouncedInput
                                 ref={searchRef}
                                 value={search}
