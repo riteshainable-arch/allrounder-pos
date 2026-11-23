@@ -37,6 +37,7 @@ import StockLedgerReport from "../pages/stock-ledger-report";
 import Coupon from "../pages/coupons/coupon";
 import GlobalCoupon from "../pages/coupons/global-coupon";
 import AppUpdateControl from "../components/AppUpdateControl";
+import InternetStatus from "../components/InternetStatus";
 
 const getStoredRole = () => {
     const userData = storage.getItem("userData") || {};
@@ -127,6 +128,8 @@ function AppShell({ mode, onModeChange }) {
                                         {format(currentDateTime, "hh:mm a")}
                                     </div>
                                 </div>
+                                <div className="h-9 w-px bg-header-divider" />
+                                <InternetStatus />
                                 <AppUpdateControl />
                                 {/* <div className="flex h-7 items-end translate-y-1">
                                     <MaterialUISwitch
