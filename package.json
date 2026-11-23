@@ -1,6 +1,6 @@
 {
   "name": "allrounder-payroll",
-  "version": "1.0.14",
+  "version": "1.0.15",
   "description": "An Electron application with React",
   "main": "./out/main/index.js",
   "author": "example.com",

@@ -22,6 +22,7 @@ const api = {
   getDayBills: (userId) => ipcRenderer.invoke("get-day-bills", userId),
   isDatabaseReady: () => ipcRenderer.invoke("is-database-ready"),
   updateBillSyncStatus: (indexNo, syncStatus) => ipcRenderer.invoke("update-bill-sync-status", indexNo, syncStatus),
+  updateBillDetails: (indexNo, patch) => ipcRenderer.invoke("update-bill-details", indexNo, patch),
   saveNextIndexNo: (payload) => ipcRenderer.invoke("save-next-index-no", payload),
   getNextIndexNo: (cashierId) => ipcRenderer.invoke("get-next-index-no", cashierId),
   printInvoice: () => ipcRenderer.invoke("print-invoice"),

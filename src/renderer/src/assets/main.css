@@ -363,3 +363,38 @@ ul:not([class]) {
     outline-offset: -2px;
     background-color: var(--mui-palette-customColors-primaryHover) !important;
 }
+/* Wheel ticket: printed as its own job right after the bill. The ticket is hidden while the bill prints and
+   the bill is hidden while the ticket prints (body[data-print-target="ticket"] is set around that job). */
+@media print {
+    #wheel-ticket-section {
+        display: none !important;
+    }
+
+    #wheel-ticket-section,
+    #wheel-ticket-section * {
+        visibility: visible;
+    }
+
+    .MuiDialog-paper:has(#wheel-ticket-section) {
+        margin: 0 !important;
+        padding: 0 !important;
+        width: auto !important;
+        max-width: none !important;
+    }
+
+    body[data-print-target="ticket"] #print-section {
+        display: none !important;
+    }
+
+    body[data-print-target="ticket"] #wheel-ticket-section {
+        display: flex !important;
+        position: absolute;
+        left: 4mm;
+        top: 0;
+        width: 72mm !important;
+        margin: 0 !important;
+        padding: 0 1mm;
+        border: 0 !important;
+        box-sizing: border-box;
+    }
+}

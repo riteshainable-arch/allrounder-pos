@@ -32,7 +32,16 @@ import { toast } from "react-toastify";
 
 const DEFAULT_STORE_ID = 1;
 
-export default function ManagerUnlockModal({ isOpen, onClose, onSuccess }) {
+export default function ManagerUnlockModal({
+    isOpen,
+    onClose,
+    onSuccess,
+    title = "Manager Authentication",
+    infoText = "Manager must unlock the return panel before processing a sale return.",
+    confirmText = "Unlock Return",
+    successMessage = "Sale return unlocked.",
+    severity = "info",
+}) {
     const userData = useUser();
     const printRef = useRef(null);
     const managerSelectRef = useRef(null);
@@ -94,7 +103,7 @@ export default function ManagerUnlockModal({ isOpen, onClose, onSuccess }) {
                 throw new Error(response?.message || "Manager verification failed.");
             }
             setUnlockPassword("");
-            toast.success("Sale return unlocked.");
+            toast.success(successMessage);
             onSuccess?.();
             onClose();
         } catch (error) {
@@ -117,13 +126,11 @@ export default function ManagerUnlockModal({ isOpen, onClose, onSuccess }) {
             isOpen={isOpen}
             onClose={onClose}
             maxWidth="sm"
-            title={<div className="text-base font-semibold">Manager Authentication</div>}
+            title={<div className="text-base font-semibold">{title}</div>}
             titleClass="p-3! border-b!"
         >
             <div className="p-4 flex flex-col gap-4 max-h-[78vh] overflow-y-auto">
-                <Alert severity="info">
-                    Manager must unlock the return panel before processing a sale return.
-                </Alert>
+                <Alert severity={severity}>{infoText}</Alert>
                 <KitSelect
                     ref={managerSelectRef}
                     label="Manager"
@@ -155,7 +162,7 @@ export default function ManagerUnlockModal({ isOpen, onClose, onSuccess }) {
                         isLoading={isVerifyingManager}
                         onClick={handleUnlock}
                     >
-                        Unlock Return
+                        {confirmText}
                     </KitButton>
                 </div>
             </div>

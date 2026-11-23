@@ -95,6 +95,8 @@ export default function PaymentCollectionModal({
     cartRows = [],
     storeId,
     onSyncSchemeItems,
+    appliedSchemes = [],
+    onAppliedSchemesChange,
     onEnsureWheelItem,
     wheelSelection = null,
 }) {
@@ -212,6 +214,18 @@ export default function PaymentCollectionModal({
                   }))
               )
             : cartRows;
+        // Remember the picked offers on the billing screen so they survive closing this popup.
+        onAppliedSchemesChange?.(
+            selectedSchemes.map((scheme) => ({
+                id: scheme.id,
+                schemeName: scheme.schemeName,
+                schemeCode: scheme.schemeCode,
+                schemeType: scheme.schemeType,
+                eligibleQty: scheme.eligibleQty,
+                autoAddItems: scheme.autoAddItems || [],
+                items: scheme.items || [],
+            }))
+        );
         const estimatedNetPayable = Math.max(
             0,
             Number(netPayable || 0) + rowsTotal(evaluationRows) - rowsTotal(cartRows)
@@ -298,6 +312,7 @@ export default function PaymentCollectionModal({
         setSchemeEvaluationError("");
 
         // Take back any item the offer had added to the bill.
+        onAppliedSchemesChange?.([]);
         const rowsWithoutSchemeItems = onSyncSchemeItems ? await onSyncSchemeItems([]) : cartRows;
         const estimatedNetPayable = Math.max(
             0,
@@ -331,6 +346,17 @@ export default function PaymentCollectionModal({
         if (!open) {
             resetState();
         }
+    }, [open]);
+
+    // The billing screen unmounts this modal when it closes (KitShow), so the offers picked here live in the
+    // billing screen (`appliedSchemes`). They stay on the bill after the popup is closed; when it is opened
+    // again they are selected and evaluated afresh against the current cart.
+    useEffect(() => {
+        if (!open || !appliedSchemes?.length) return;
+        const ids = appliedSchemes.map((scheme) => Number(scheme.id));
+        setDraftSchemeIds(ids);
+        handleApplySchemeSelection(ids, appliedSchemes);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [open]);
 
     // A wheel ticket + coupon picked on the billing screen is applied as soon as Collect Payment opens.

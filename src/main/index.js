@@ -805,7 +805,8 @@ app.whenReady().then(async () => {
           "DELETE FROM stores",
           "DELETE FROM customers",
           "DELETE FROM customer_profiles",
-          "DELETE FROM day_sessions",
+          // day_sessions is kept on purpose: it holds today's start-day record (opening cash).
+          // Without it End Day / settlement cannot be completed after "Clear DB".
           "DELETE FROM counters",
         ];
 
@@ -1318,6 +1319,32 @@ ipcMain.handle("save-customer", async (_, customer) => {
                 resolve({
                   success: true
                 });
+              }
+            );
+          }
+        );
+      });
+    });
+  });
+
+  // Edit bill details (name / mobile / GST / payment split): merge the changed fields into the stored bill.
+  ipcMain.handle("update-bill-details", async (_, indexNo, patch) => {
+    return withDbWriteLock(async () => {
+      return new Promise((resolve, reject) => {
+        db.get(
+          "SELECT id, billJson FROM bills WHERE indexNo = ?",
+          [indexNo],
+          (err, row) => {
+            if (err) return reject(err);
+            if (!row) return reject(new Error("Bill not found"));
+
+            const bill = { ...JSON.parse(row.billJson), ...(patch || {}) };
+            db.run(
+              `UPDATE bills SET billJson = ? WHERE indexNo = ?`,
+              [JSON.stringify(bill), indexNo],
+              function (updateErr) {
+                if (updateErr) return reject(updateErr);
+                resolve({ success: true, bill: { id: row.id, ...bill } });
               }
             );
           }

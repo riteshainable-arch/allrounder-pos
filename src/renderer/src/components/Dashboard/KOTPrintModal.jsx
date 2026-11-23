@@ -50,6 +50,7 @@ const KOTPrintModal = ({ isOpen, onClose, selectedItems: selectedItemsProp, auto
             totalAmount: bill.totalAmount,
             payAmount: bill.payAmount,
             savingAmount: bill.savingAmount,
+            customerSaving: invoiceBillDetail?.data?.customerSaving ?? null,
             schemeDiscountAmount: bill.schemeDiscountAmount ?? invoiceBillDetail?.data?.schemeDiscountAmount,
             billingSchemes: bill.billingSchemes ?? invoiceBillDetail?.data?.billingSchemes ?? [],
             wheelTicket: invoiceBillDetail?.data?.wheelTicket ?? selectedItemsProp?.wheelTicket ?? null,
@@ -65,7 +66,9 @@ const KOTPrintModal = ({ isOpen, onClose, selectedItems: selectedItemsProp, auto
             totalQuantity: bill.totalQty,
             date: bill.date,
             gstNumber: bill?.gstNumber || "",
-            customerName: bill.customer?.firstName,
+            customerName: [bill.customer?.firstName, bill.customer?.lastName].filter(Boolean).join(" ") || undefined,
+            customerGstName: bill.customer?.gstName || "",
+            customerGstNumber: bill.customer?.gstNumber || "",
             customerPhone: bill.customer?.phone,
             cashierId: bill.createdBy?.id,
             cashierName: bill.createdBy?.firstName,
@@ -134,6 +137,26 @@ const KOTPrintModal = ({ isOpen, onClose, selectedItems: selectedItemsProp, auto
         onCloseRef.current = onClose;
     }, [onClose]);
 
+    const wheelTicket = selectedItems?.wheelTicket ?? null;
+    const hasWheelTicket = Boolean(wheelTicket && wheelTicket.status !== "CANCELLED");
+
+    // Bill first, then the wheel ticket as a separate print job (its own slip) - automatically, no extra click.
+    const printBillAndTicket = async () => {
+        await printToDefaultPrinter();
+        if (!hasWheelTicket) return;
+
+        // Let the printer finish / cut the bill slip before the ticket job is sent.
+        await new Promise((resolve) => window.setTimeout(resolve, 700));
+        document.body.dataset.printTarget = "ticket";
+        try {
+            await new Promise((resolve) => window.requestAnimationFrame(() => window.requestAnimationFrame(resolve)));
+            await printToDefaultPrinter();
+        } catch (error) {
+            toast.error(`Bill printed, but the wheel ticket could not be printed: ${error?.message || "print failed"}`);
+        } finally {
+            delete document.body.dataset.printTarget;
+        }
+    };
     useEffect(() => {
         if (!isOpen) {
             autoPrintStarted.current = false;
@@ -148,7 +171,7 @@ const KOTPrintModal = ({ isOpen, onClose, selectedItems: selectedItemsProp, auto
         const timer = window.setTimeout(async () => {
             printStarted = true;
             try {
-                await printToDefaultPrinter();
+                await printBillAndTicket();
                 onCloseRef.current?.();
             } catch (error) {
                 toast.error(error?.message || "Unable to print invoice.");
@@ -162,7 +185,6 @@ const KOTPrintModal = ({ isOpen, onClose, selectedItems: selectedItemsProp, auto
         };
     }, [isOpen, autoPrint, selectedItems]);
 
-    const wheelTicket = selectedItems?.wheelTicket ?? null;
     const items = selectedItems?.saleItems ?? selectedItems?.items ?? []
     const billPayments = normalizeBillPayments(selectedItems);
     const getPaymentTotal = (mode) =>
@@ -239,7 +261,7 @@ const KOTPrintModal = ({ isOpen, onClose, selectedItems: selectedItemsProp, auto
 
         setIsPrinting(true);
         try {
-            await printToDefaultPrinter();
+            await printBillAndTicket();
             onClose?.();
         } catch (error) {
             toast.error(error?.message || "Unable to print invoice.");
@@ -297,6 +319,7 @@ const KOTPrintModal = ({ isOpen, onClose, selectedItems: selectedItemsProp, auto
                                 ))}
                             </div>
                         ) : (
+                            <>
                             <div
                                 id="print-section"
                                 className="text-[13px] text-third-800 w-fit mx-auto"
@@ -367,6 +390,15 @@ const KOTPrintModal = ({ isOpen, onClose, selectedItems: selectedItemsProp, auto
                                             {selectedItems?.customerName ?? selectedItems?.customer?.firstName ?? ""}
                                         </span>
                                     </div>
+                                    {selectedItems?.customerGstName && (
+                                        <div className="grid grid-cols-[100px_1fr] gap-1 py-0.5 text-[10px]">
+                                            <span>GST Name :</span>
+                                            <span className="justify-self-start font-medium">
+                                                {selectedItems.customerGstName}
+                                                {selectedItems.customerGstNumber ? ` (${selectedItems.customerGstNumber})` : ""}
+                                            </span>
+                                        </div>
+                                    )}
                                     <div className="grid grid-cols-[100px_1fr] gap-1 py-0.5 text-[10px]">
                                         <span>Cust Mobile No :</span>
                                         <span className="justify-self-start font-medium">
@@ -543,6 +575,22 @@ const KOTPrintModal = ({ isOpen, onClose, selectedItems: selectedItemsProp, auto
                                     <div className="mx-2 rounded border-2 border-black py-1 text-center text-base font-extrabold">
                                         YOU SAVE: {priceFormat(selectedItems?.savingAmount)}
                                     </div>
+                                    {selectedItems?.customerSaving && (
+                                        <div className="mx-2 mt-1 rounded border border-black px-2 py-1 text-xs">
+                                            <div className="flex justify-between">
+                                                <span>Previous Saving</span>
+                                                <span>{priceFormat(selectedItems.customerSaving.previousSaving)}</span>
+                                            </div>
+                                            <div className="flex justify-between">
+                                                <span>Today Saving</span>
+                                                <span>{priceFormat(selectedItems.customerSaving.todaySaving)}</span>
+                                            </div>
+                                            <div className="mt-0.5 flex justify-between border-t border-dashed border-black pt-0.5 text-sm font-extrabold">
+                                                <span>TOTAL SAVING</span>
+                                                <span>{priceFormat(selectedItems.customerSaving.totalSaving)}</span>
+                                            </div>
+                                        </div>
+                                    )}
                                     {/* <div className="flex justify-between">
                                         <span>Total Saving</span>
                                         <span>{priceFormat(selectedItems?.savingAmount ?? 0)}</span>
@@ -683,11 +731,13 @@ const KOTPrintModal = ({ isOpen, onClose, selectedItems: selectedItemsProp, auto
                                     </div>
                                 </div>
 
-                                {wheelTicket && wheelTicket.status !== "CANCELLED" && (
-                                    // Second print of the same job: its own page, so the printer cuts it as a separate slip.
+                            </div>
+                                {hasWheelTicket && (
+                                    // Printed on its own, right after the bill (separate print job = separate slip).
                                     <div
-                                        className="flex flex-col items-center gap-1 pt-2 text-center"
-                                        style={{ breakBefore: "page", pageBreakBefore: "always" }}
+                                        id="wheel-ticket-section"
+                                        className="mx-auto flex w-fit flex-col items-center gap-1 border-t border-dashed border-third-500 pt-2 text-center text-[13px] text-third-800"
+                                        style={{ page: "kot-thermal" }}
                                     >
                                         <img src={Logo} alt="logo" className="w-24" />
                                         <div className="w-full border-y border-third-500 py-1 text-base font-bold tracking-wide">
@@ -729,7 +779,7 @@ const KOTPrintModal = ({ isOpen, onClose, selectedItems: selectedItemsProp, auto
                                         </div>
                                     </div>
                                 )}
-                            </div>
+                            </>
                         )}
                     </div>
 

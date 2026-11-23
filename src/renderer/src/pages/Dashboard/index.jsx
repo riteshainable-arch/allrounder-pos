@@ -48,7 +48,8 @@ import useOnlineStatus from "../../../../kit/hooks/useOnlineStatus";
 import useLoyaltyCart from "../../../../kit/hooks/useLoyaltyCart";
 import { isLoyaltyRedeemRejected, getApiErrorMessage } from "../../../../kit/hooks/data/loyalty";
 import { mergeServerLoyaltyBill } from "../../../../kit/utils/loyalty";
-import LoyaltyRedeemPanel, { LoyaltyExcludedBadge } from "../../components/Dashboard/LoyaltyRedeemPanel";
+import LoyaltyRewardPanel from "../../components/Dashboard/LoyaltyRewardPanel";
+import LoyaltyRewardModal from "../../components/Dashboard/LoyaltyRewardModal";
 import { WheelCouponBadge } from "../../components/Dashboard/WheelCouponPanel";
 import WheelTicketModal from "../../components/Dashboard/WheelTicketModal";
 import MenuDrawer from "../../components/Dashboard/MenuDrawer";
@@ -161,6 +162,11 @@ export default function Dashboard() {
     const [focOfferOpen, setFocOfferOpen] = useState(false);
     const [showMenuDrawer, setShowMenuDrawer] = useState(false);
     const [showPaymentModal, setShowPaymentModal] = useState(false);
+    // Offers (schemes) picked in the Collect Payment popup. Kept here so they stay on the bill when the popup
+    // is closed and come back when it is opened again.
+    const [appliedSchemes, setAppliedSchemes] = useState([]);
+    // Loyalty reward items (free products taken for loyalty points) popup.
+    const [showRewardModal, setShowRewardModal] = useState(false);
     // Wheel coupon bill: ticket + coupon picked on this screen, applied when Collect Payment opens.
     const [showWheelTicket, setShowWheelTicket] = useState(false);
     const [wheelSelection, setWheelSelection] = useState(null);
@@ -522,6 +528,89 @@ export default function Dashboard() {
         });
         toast.success(`Wheel coupon ${coupon.code} selected for ticket ${ticketNo}. Press Collect Payment.`);
     };
+
+    // Loyalty reward items: products the customer takes FREE for loyalty points. They live in the cart as free rows
+    // (price 0, `isLoyaltyReward`) so the list, stock and bill show them; the points are deducted by the server
+    // when the bill is generated. `selections` = [{ reward, qty }] replaces every reward row on the bill.
+    const handleApplyRewards = async (selections = []) => {
+        setShowRewardModal(false);
+        const rows = [];
+        for (const { reward, qty } of selections) {
+            const code = String(reward.itemCode ?? "").trim().toLowerCase();
+            const matches = (product) =>
+                String(product.itemCode ?? product.productCode ?? "").trim().toLowerCase() === code;
+            let product = productsList.find(matches);
+            for (const query of [reward.itemCode, reward.itemName]) {
+                if (product || !query) continue;
+                try {
+                    const found = await window.api.getProducts(String(query));
+                    product = (found || []).find(matches);
+                } catch (error) {
+                    product = null;
+                }
+            }
+            if (!product) {
+                toast.error(`Reward item ${reward.itemName || reward.itemCode} was not found in this store's stock.`);
+                continue;
+            }
+            const stock = Number(product.stockQty ?? product.stock);
+            if (Number.isFinite(stock) && stock < qty) {
+                toast.error(`Only ${stock} of ${reward.itemName || reward.itemCode} in stock.`);
+                continue;
+            }
+            rows.push({
+                ...product,
+                id: `${product.id}-loyalty-${reward.id}`,
+                quantity: qty,
+                price: 0,
+                salePrice: 0,
+                latestSalePrice: 0,
+                bkdAmount: 0,
+                totalPrice: 0,
+                offers: [],
+                isOfferItem: true,
+                isLoyaltyReward: true,
+                rewardId: reward.id,
+                rewardPointsPerUnit: Number(reward.pointsRequired) || 0,
+                rewardPhone: String(phone || "").trim(),
+            });
+        }
+        setCartRows((prev) => [...prev.filter((row) => !row.isLoyaltyReward), ...rows]);
+        if (rows.length) {
+            const points = rows.reduce((sum, row) => sum + row.rewardPointsPerUnit * row.quantity, 0);
+            toast.success(`Reward items added free (${Math.round(points * 1000) / 1000} loyalty points).`);
+        }
+    };
+
+    // Points belong to one customer: a reward row is dropped when the bill's customer number changes.
+    useEffect(() => {
+        const current = String(phone || "").trim();
+        setCartRows((prev) =>
+            prev.some((row) => row.isLoyaltyReward && row.rewardPhone !== current)
+                ? prev.filter((row) => !row.isLoyaltyReward || row.rewardPhone === current)
+                : prev
+        );
+    }, [phone]);
+
+    // Offers drop out together with the bill: once the cart is empty (bill saved, held, cleared) nothing is applied.
+    useEffect(() => {
+        if (!cartRows.length && appliedSchemes.length) setAppliedSchemes([]);
+    }, [cartRows.length, appliedSchemes.length]);
+
+    // item code -> names of the applied item offers, to tag the matching rows in the bill list.
+    const schemeNamesByItemCode = useMemo(() => {
+        const map = new Map();
+        appliedSchemes
+            .filter((scheme) => scheme?.schemeType !== "BILL_DISCOUNT")
+            .forEach((scheme) => {
+                (scheme.items || []).forEach((item) => {
+                    const code = String(item.itemCode ?? "").trim().toLowerCase();
+                    if (!code) return;
+                    map.set(code, [...(map.get(code) || []), scheme.schemeName || scheme.schemeCode || "Scheme"]);
+                });
+            });
+        return map;
+    }, [appliedSchemes]);
 
     const handleSyncSchemeItems = async (selections = []) => {
         const wanted = (Array.isArray(selections) ? selections : []).filter((selection) => selection?.schemeId);
@@ -1338,6 +1427,12 @@ export default function Dashboard() {
     };
 
     const onDelete = () => {
+        if (selectedRow?.isLoyaltyReward) {
+            setCartRows((prev) => prev.filter((row) => row.id !== selectedRow.id));
+            setSelectedRow(null);
+            toggleDeleteDialog();
+            return;
+        }
         setCartRows((prev) => {
             const isBuyXGetYFreeItem = selectedRow?.isOfferItem && selectedRow?.offers?.[0]?.offerType === offerTypes.BUY_X_GET_Y;
 
@@ -1407,6 +1502,30 @@ export default function Dashboard() {
                             className="text-xs! p-0!"
                         />
                     )}
+                    {params.row.isLoyaltyReward && (
+                        <Chip
+                            label={`Loyalty: ${roundToDecimals(params.row.rewardPointsPerUnit * params.row.quantity)} pts`}
+                            color="warning"
+                            size="small"
+                            className="text-xs! p-0!"
+                        />
+                    )}
+                    {!params.row.isOfferItem &&
+                        (() => {
+                            const names = schemeNamesByItemCode.get(
+                                String(params.row.itemCode ?? params.row.productCode ?? "").trim().toLowerCase()
+                            );
+                            return names?.length ? (
+                                <Tooltip title={`Scheme applied: ${names.join(", ")}`}>
+                                    <Chip
+                                        label={`Scheme: ${names[0]}${names.length > 1 ? ` +${names.length - 1}` : ""}`}
+                                        color="warning"
+                                        size="small"
+                                        className="max-w-60 text-xs! p-0!"
+                                    />
+                                </Tooltip>
+                            ) : null;
+                        })()}
                     {/* {!params.row.isOfferItem && excludedItemCodes.has(params.row.itemCode) && (
                         <LoyaltyExcludedBadge />
                     )} */}
@@ -1526,6 +1645,20 @@ export default function Dashboard() {
             cellClassName: "sticky-column",
             renderCell: (params) => {
                 const isBuyXGetYOffer = params.row.offers?.[0]?.offerType === offerTypes.BUY_X_GET_Y;
+
+                if (params.row.isLoyaltyReward) {
+                    return (
+                        <IconButton
+                            edge="end"
+                            onClick={() => {
+                                setSelectedRow(params.row);
+                                toggleDeleteDialog();
+                            }}
+                        >
+                            <DeleteIcon color="error" fontSize="small" />
+                        </IconButton>
+                    );
+                }
 
                 if (params.row.isOfferItem && !isBuyXGetYOffer) {
                     return null;
@@ -1704,7 +1837,38 @@ export default function Dashboard() {
                     isOfferFreeItem: Boolean(item.isOfferItem),
                 })),
             };
-    
+
+            // Loyalty reward items (free for points): tagged lines + the selection the server checks and charges.
+            const rewardRows = cartRows.filter((row) => row.isLoyaltyReward);
+            if (rewardRows.length) {
+                const normCode = (value) => String(value ?? "").trim().toLowerCase();
+                const rewardCodes = new Set(rewardRows.map((row) => normCode(row.itemCode ?? row.productCode)));
+                billPayload.saleItems = [
+                    ...billPayload.saleItems.filter(
+                        (line) => !(rewardCodes.has(normCode(line.itemCode)) && Number(line.salePrice) === 0)
+                    ),
+                    ...rewardRows.map((row) => ({
+                        itemCode: row.itemCode ?? row.productCode,
+                        itemName: row.productName,
+                        qty: Number(row.quantity),
+                        mrp: roundToDecimals(row.latestMRP ?? row?.mrp),
+                        salePrice: 0,
+                        inventoryPriceLayerId: row.inventoryPriceLayerId,
+                        isReturnBill: false,
+                        isOfferFreeItem: true,
+                        offerName: `Loyalty Reward (${roundToDecimals(row.rewardPointsPerUnit * row.quantity)} pts)`,
+                        offerAppliedType: "LOYALTY_REWARD",
+                    })),
+                ];
+                billPayload.loyaltyRewards = rewardRows.map((row) => ({
+                    rewardId: row.rewardId,
+                    qty: Number(row.quantity),
+                }));
+                billPayload.loyaltyRewardPoints = roundToDecimals(
+                    rewardRows.reduce((sum, row) => sum + row.rewardPointsPerUnit * row.quantity, 0)
+                );
+            }
+
             let finalPayload = billPayload;
             let uploaded = false;
 
@@ -2851,18 +3015,22 @@ export default function Dashboard() {
                                         </div> */}
                                     </div>
                                     <hr className="border-gray-300" />
-                                    <LoyaltyRedeemPanel
+                                    <LoyaltyRewardPanel
                                         balance={loyaltyBalance}
                                         balanceLoading={loyaltyBalanceLoading}
-                                        preview={loyaltyPreview}
                                         previewLoading={loyaltyPreviewLoading}
-                                        redeemEnabled={redeemEnabled}
-                                        onRedeemEnabledChange={setRedeemEnabled}
-                                        redeemPointsInput={redeemPointsInput}
-                                        onRedeemPointsInputChange={setRedeemPointsInput}
-                                        onRedeemAll={handleRedeemAll}
-                                        totalPay={totalPay}
-                                        netPayable={netPayable}
+                                        earnedPoints={Number(loyaltyPreview?.earnedPoints ?? 0)}
+                                        rewardRows={cartRows.filter((row) => row.isLoyaltyReward)}
+                                        disabled={!isOnline || String(phone || "").length !== 10}
+                                        disabledReason={
+                                            !isOnline
+                                                ? "Reward items need internet"
+                                                : "Enter the customer number to use loyalty points"
+                                        }
+                                        onOpen={() => {
+                                            if (!requireDayStarted()) return;
+                                            setShowRewardModal(true);
+                                        }}
                                     />
                                 </Paper>
                                 <div data-shortcut-ignore className="flex items-center gap-2">
@@ -3113,6 +3281,8 @@ export default function Dashboard() {
                             cartRows={cartRows}
                             storeId={POS_STORE_ID}
                             onSyncSchemeItems={handleSyncSchemeItems}
+                            appliedSchemes={appliedSchemes}
+                            onAppliedSchemesChange={setAppliedSchemes}
                             onEnsureWheelItem={handleEnsureWheelItem}
                             wheelSelection={wheelSelection}
                             onGenerateInvoice={handleGenerateBill}
@@ -3123,6 +3293,17 @@ export default function Dashboard() {
                             onRemarkChange={setRemark}
                         />
                     </KitShow>
+
+                    {showRewardModal && (
+                        <LoyaltyRewardModal
+                            open
+                            onClose={() => setShowRewardModal(false)}
+                            customerPhone={String(phone || "").trim()}
+                            storeId={POS_STORE_ID}
+                            current={cartRows.filter((row) => row.isLoyaltyReward)}
+                            onApply={handleApplyRewards}
+                        />
+                    )}
 
                     {showWheelTicket && (
                         <WheelTicketModal

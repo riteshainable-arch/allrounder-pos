@@ -51,4 +51,7 @@ const useInvoiceBillDetail = (invoiceNo, shouldFetch = true) => {
     };
 };
 
-export { useInvoiceBills, useInvoiceBillDetail, fetchInvoiceBillDetail, fetchInvoiceBills };
+/** Manager-approved edit of name / mobile / GST / payment split. */
+const editBillDetails = (body) => API.patch(`${API_VERSION}/${BILLS_PATH}/edit-details`, body);
+
+export { editBillDetails, useInvoiceBills, useInvoiceBillDetail, fetchInvoiceBillDetail, fetchInvoiceBills };

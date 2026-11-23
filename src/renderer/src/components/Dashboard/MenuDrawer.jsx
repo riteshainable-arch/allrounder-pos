@@ -29,9 +29,13 @@ const MenuDrawer = ({ isOpen, onClose, userData, handleLogout, setIsSyncCustomer
     const [showDeleteDialog, setShowDeleteDialog] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
     const [isManagerUnlockModalOpen, setIsManagerUnlockModalOpen] = useState(false);
+    const [isClearDbAuthOpen, setIsClearDbAuthOpen] = useState(false);
     const [pendingNavigation, setPendingNavigation] = useState(null);
 
     const toggleDeleteDialog = () => setShowDeleteDialog(!showDeleteDialog);
+
+    // Clear DB is manager-only: ask for the manager + password first, then show the confirm dialog.
+    const requestClearDb = () => setIsClearDbAuthOpen(true);
 
     const handleUnlockInvoice = (path) => {
         setPendingNavigation(path);
@@ -213,7 +217,7 @@ const MenuDrawer = ({ isOpen, onClose, userData, handleLogout, setIsSyncCustomer
             icon: "tabler:trash-x",
             color: "red",
             shortcut: "Shift + D",
-            action: () => toggleDeleteDialog(),
+            action: () => requestClearDb(),
         },
     ];
 
@@ -250,9 +254,12 @@ const MenuDrawer = ({ isOpen, onClose, userData, handleLogout, setIsSyncCustomer
                 return;
             }
 
+            // Typing in the manager popup (e.g. a capital D in the password) must not trigger menu shortcuts.
+            if (isClearDbAuthOpen || isManagerUnlockModalOpen) return;
+
             if (e.shiftKey && e.key.toLowerCase() === "d") {
                 e.preventDefault();
-                toggleDeleteDialog();
+                requestClearDb();
                 return;
             }
 
@@ -426,6 +433,22 @@ const MenuDrawer = ({ isOpen, onClose, userData, handleLogout, setIsSyncCustomer
                             subTitle="All local data except bills will be deleted. You will need to sync Products, Customers, and Stores again after this. Do you want to continue?"
                             onDelete={onDelete}
                             isBtnLoading={isLoading}
+                        />
+                    </KitShow>
+
+                    <KitShow show={isClearDbAuthOpen}>
+                        <ManagerUnlockModal
+                            isOpen={isClearDbAuthOpen}
+                            onClose={() => setIsClearDbAuthOpen(false)}
+                            title="Manager Authentication — Clear DB"
+                            infoText="Clearing local data needs manager approval. Select the manager and enter the password."
+                            confirmText="Verify & Continue"
+                            successMessage="Manager verified."
+                            severity="warning"
+                            onSuccess={() => {
+                                setIsClearDbAuthOpen(false);
+                                setShowDeleteDialog(true);
+                            }}
                         />
                     </KitShow>
 

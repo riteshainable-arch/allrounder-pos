@@ -10,6 +10,8 @@ import KitIcon from "../../../../kit/components/KitIcon/KitIcon";
 import KitDebouncedInput from "../../../../kit/components/KitDebouncedInput";
 import InvoiceModal from "../../components/Bills/InvoiceModal";
 import KOTPrintModal from "../../components/Dashboard/KOTPrintModal";
+import EditBillDetailsModal from "../../components/Bills/EditBillDetailsModal";
+import useOnlineStatus from "../../../../kit/hooks/useOnlineStatus";
 import { toast } from "react-toastify";
 import { formatBillPaymentsSummary, getPaymentModeLabel, normalizeBillPayments } from "../../../../kit/utils/billPayments";
 import { filterBillsForCashier } from "../../../../kit/utils/cashierBills";
@@ -20,6 +22,8 @@ import { uploadInvoicesToServer } from "../../../../kit/utils/syncOperations";
 export default function Bills() {
     const navigate = useNavigate();
     const userData = useUser();
+    const isOnline = useOnlineStatus();
+    const [editBill, setEditBill] = useState(null);
     const [search, setSearch] = useState('')
     const [rows, setRows] = useState([]);
     const [loading, setLoading] = useState(false);
@@ -231,13 +235,34 @@ export default function Bills() {
         {
             field: 'actions',
             headerName: 'Actions',
-            width: 180,
+            width: 270,
             sortable: false,
             disableColumnMenu: true,
             headerClassName: 'sticky-column',
             cellClassName: 'sticky-column',
             renderCell: (params) => (
                 <div className="flex gap-2">
+                    <Tooltip
+                        title={
+                            !isOnline
+                                ? "Internet is needed to edit a bill"
+                                : params.row.syncStatus !== "SYNCED"
+                                  ? "Upload this bill to the server first"
+                                  : ""
+                        }
+                    >
+                        <span>
+                            <KitButton
+                                size="small"
+                                className='w-fit'
+                                variant="outlined"
+                                disabled={!isOnline || params.row.syncStatus !== "SYNCED"}
+                                onClick={() => setEditBill(params.row)}
+                            >
+                                Edit
+                            </KitButton>
+                        </span>
+                    </Tooltip>
                     <KitButton
                         size="small"
                         className='w-fit'
@@ -309,6 +334,18 @@ export default function Bills() {
                     getRowId={(row) => row.id}
                 />
             </div>
+
+            <KitShow show={Boolean(editBill)}>
+                <EditBillDetailsModal
+                    key={editBill?.indexNo}
+                    isOpen={Boolean(editBill)}
+                    onClose={() => setEditBill(null)}
+                    bill={editBill}
+                    onSaved={(updated) =>
+                        setRows((prev) => prev.map((row) => (row.id === updated.id ? updated : row)))
+                    }
+                />
+            </KitShow>
 
             <KitShow show={isInvoiceModalOpen}>
                 <InvoiceModal

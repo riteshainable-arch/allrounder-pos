@@ -8,6 +8,14 @@ import { priceFormat } from "../../../../kit/utils/priceFormat";
 
 const VERIFY_PATH = `${API_VERSION}/admin/coupons/wheel/ticket/verify`;
 const PHONE_RE = /^[0-9]{10}$/;
+const TICKET_PREFIX = "TKT";
+
+// The "TKT" prefix is shown in the field already, so the cashier only types the rest (e.g. 1021).
+// A pasted full ticket number ("TKT1021") is accepted too - the prefix is stripped.
+const cleanTicketSuffix = (value) => {
+    const upper = String(value ?? "").toUpperCase().replace(/\s+/g, "");
+    return upper.startsWith(TICKET_PREFIX) ? upper.slice(TICKET_PREFIX.length) : upper;
+};
 
 const errorText = (error, fallback) =>
     Array.isArray(error)
@@ -64,7 +72,8 @@ export default function WheelTicketModal({ open, onClose, customerPhone, storeId
 
     const verify = async () => {
         const cleanPhone = phone.trim();
-        const cleanTicket = ticketNo.trim().toUpperCase();
+        const suffix = cleanTicketSuffix(ticketNo);
+        const cleanTicket = suffix ? `${TICKET_PREFIX}${suffix}` : "";
         setResult(null);
         setSelectedId(null);
         if (!PHONE_RE.test(cleanPhone)) return setError("Enter the customer's 10-digit mobile number.");
@@ -155,10 +164,11 @@ export default function WheelTicketModal({ open, onClose, customerPhone, storeId
                             fullWidth
                             size="small"
                             label="Ticket number"
-                            placeholder="e.g. TKT1021"
+                            placeholder="e.g. 1021"
+                            startIcon={<span className="text-sm font-semibold text-third-700">{TICKET_PREFIX}</span>}
                             value={ticketNo}
                             onChange={(e) => {
-                                setTicketNo(e.target.value.toUpperCase());
+                                setTicketNo(cleanTicketSuffix(e.target.value));
                                 setResult(null);
                             }}
                             onKeyDown={onTicketKeyDown}
@@ -170,8 +180,15 @@ export default function WheelTicketModal({ open, onClose, customerPhone, storeId
                 </div>
 
                 {error && (
-                    <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700" role="alert">
-                        {error}
+                    <div
+                        className="flex items-start gap-2 rounded-md border-2 border-red-400 bg-red-50 px-3 py-2.5 text-red-700"
+                        role="alert"
+                    >
+                        <i className="tabler-alert-circle mt-0.5 text-lg" />
+                        <div className="min-w-0">
+                            <div className="text-xs font-bold uppercase tracking-wide">Ticket not accepted</div>
+                            <div className="text-sm font-semibold">{error}</div>
+                        </div>
                     </div>
                 )}
 

@@ -107,3 +107,12 @@ export const isLoyaltyRedeemRejected = (error) =>
     getApiErrorMessage(error).startsWith("Loyalty redeem rejected:");
 
 export { useGetLoyaltyBalance, useGetLoyaltyLedger, useGetLoyaltyDailyReport, fetchLoyaltyLedger }
+
+/** Products this customer's loyalty points can take free (admin "Reward Items"). */
+export const getLoyaltyRewards = async (phone, storeId) => {
+    const response = await API.get(
+        `${API_VERSION}/${LOYALTY_PATH}/customers/${encodeURIComponent(phone)}/rewards`,
+        storeId ? { storeId } : {}
+    );
+    return unwrapData(response);
+};
