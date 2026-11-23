@@ -20,18 +20,26 @@ const discountText = (c) =>
         ? `${c.discountValue}% off${c.maxDiscountAmount ? ` (max ${priceFormat(c.maxDiscountAmount)})` : ""}`
         : `${priceFormat(c?.discountValue || 0)} off`;
 
-/** Collection screen: the customer's wheel coupons (apply / why not) + assign a new one. */
-export default function WheelCouponPanel({ customerPhone, storeId, items, appliedCode, disabled, isApplying, onApply }) {
+/**
+ * Collection screen: "Wheel ticket" button (customer shows the ticket from an earlier bill → picks the won
+ * coupon) + coupons an admin assigned to this customer (apply / why not).
+ */
+export default function WheelCouponPanel({
+    customerPhone,
+    storeId,
+    items,
+    appliedCode,
+    appliedTicketNo,
+    disabled,
+    isApplying,
+    onApply,
+    onOpenTicket,
+}) {
     const phone = String(customerPhone || "").trim();
     const hasPhone = PHONE_RE.test(phone);
     const [coupons, setCoupons] = useState([]);
     const [loading, setLoading] = useState(false);
     const [message, setMessage] = useState("");
-    const [showAssign, setShowAssign] = useState(false);
-    const [activeCoupons, setActiveCoupons] = useState([]);
-    const [assignId, setAssignId] = useState("");
-    const [assigning, setAssigning] = useState(false);
-    const [assignMessage, setAssignMessage] = useState({ text: "", isError: false });
 
     const load = useCallback(async () => {
         if (!hasPhone) {
@@ -55,93 +63,25 @@ export default function WheelCouponPanel({ customerPhone, storeId, items, applie
         load();
     }, [load]);
 
-    const openAssign = async () => {
-        const next = !showAssign;
-        setShowAssign(next);
-        setAssignMessage({ text: "", isError: false });
-        if (!next) return;
-        try {
-            const res = await API.get(`${WHEEL_PATH}/active`, { storeId });
-            const list = res?.data ?? [];
-            setActiveCoupons(list);
-            setAssignId(list[0] ? String(list[0].id) : "");
-        } catch (error) {
-            setActiveCoupons([]);
-            setAssignMessage({ text: errorText(error, "Unable to load wheel coupons."), isError: true });
-        }
-    };
-
-    const assign = async () => {
-        if (!assignId || !hasPhone) return;
-        setAssigning(true);
-        try {
-            const res = await API.post(`${WHEEL_PATH}/assign`, {
-                couponId: Number(assignId),
-                customerPhone: phone,
-                storeId,
-                assignedFrom: "POS",
-            });
-            const skipped = res?.data?.skipped?.[0];
-            setAssignMessage(
-                skipped
-                    ? { text: skipped.reason, isError: true }
-                    : { text: res?.message || "Coupon assigned.", isError: false }
-            );
-            if (!skipped) setShowAssign(false);
-            load();
-        } catch (error) {
-            setAssignMessage({ text: errorText(error, "Unable to assign coupon."), isError: true });
-        } finally {
-            setAssigning(false);
-        }
-    };
-
-    if (!hasPhone) return null;
-
     return (
         <div data-shortcut-ignore className="rounded-lg border border-dashed border-app-border bg-calendar-bg px-3 py-2">
             <div className="flex items-center justify-between gap-2">
                 <div>
-                    <div className="text-sm font-semibold text-third-800">Wheel coupons</div>
+                    <div className="text-sm font-semibold text-third-800">Wheel coupon bill</div>
                     <div className="text-[11px] text-third-500">
-                        {loading ? "Checking..." : coupons.length ? `${coupons.length} assigned to this customer` : "None assigned"}
+                        {appliedTicketNo
+                            ? `Ticket ${appliedTicketNo} applied (${appliedCode})`
+                            : hasPhone && coupons.length
+                              ? `${coupons.length} assigned to this customer`
+                              : loading
+                                ? "Checking..."
+                                : "Use customer number + ticket no."}
                     </div>
                 </div>
-                <KitButton variant="outlined" size="small" className="w-auto" onClick={openAssign}>
-                    {showAssign ? "Close" : "+ Assign"}
+                <KitButton variant="outlined" size="small" className="w-auto" disabled={disabled} onClick={onOpenTicket}>
+                    {appliedTicketNo ? "Change" : "Wheel Ticket"}
                 </KitButton>
             </div>
-
-            {showAssign && (
-                <div className="mt-2 flex items-center gap-2">
-                    <select
-                        value={assignId}
-                        onChange={(e) => setAssignId(e.target.value)}
-                        className="h-8 flex-1 rounded-md border border-app-border bg-app-paper px-2 text-sm text-third-800 outline-none"
-                    >
-                        {!activeCoupons.length && <option value="">No wheel coupon to assign</option>}
-                        {activeCoupons.map((c) => (
-                            <option key={c.id} value={c.id}>
-                                {c.code} — {c.name} ({discountText(c)})
-                                {c.remainingToAssign != null ? ` · ${c.remainingToAssign} left` : ""}
-                            </option>
-                        ))}
-                    </select>
-                    <KitButton
-                        variant="contained"
-                        size="small"
-                        className="w-auto"
-                        disabled={!assignId || assigning}
-                        isLoading={assigning}
-                        onClick={assign}
-                    >
-                        Assign
-                    </KitButton>
-                </div>
-            )}
-            {assignMessage.text && (
-                <div className={`mt-1 text-xs ${assignMessage.isError ? "text-red-600" : "text-green-700"}`}>{assignMessage.text}</div>
-            )}
 
             {coupons.length > 0 && (
                 <div className="mt-2 flex flex-col gap-1.5">

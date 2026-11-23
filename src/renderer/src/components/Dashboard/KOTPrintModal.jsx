@@ -19,6 +19,8 @@ const ITEM_ROW_GRID = "grid grid-cols-[24px_minmax(0,1fr)_46px_46px_52px] items-
 const getItemMrp = (item) => Number(item?.mrp ?? item?.latestMRP ?? 0);
 const getItemQty = (item) => Number(item?.qty ?? item?.offerProductQuantity ?? item.quantity ?? 0);
 const getItemSalePrice = (item) => Number(item?.salePrice ?? item?.price ?? 0);
+// Free item: marked free by an offer, or sold at price 0 (e.g. a scheme item priced at 0).
+const isItemFree = (item) => Boolean(item?.isOfferFreeItem) || (getItemQty(item) > 0 && getItemSalePrice(item) === 0);
 const getItemTotalAmount = (item) => {
     if (item?.isOfferFreeItem) return 0;
 
@@ -49,6 +51,10 @@ const KOTPrintModal = ({ isOpen, onClose, selectedItems: selectedItemsProp, auto
             payAmount: bill.payAmount,
             savingAmount: bill.savingAmount,
             schemeDiscountAmount: bill.schemeDiscountAmount ?? invoiceBillDetail?.data?.schemeDiscountAmount,
+            billingSchemes: bill.billingSchemes ?? invoiceBillDetail?.data?.billingSchemes ?? [],
+            wheelTicket: invoiceBillDetail?.data?.wheelTicket ?? selectedItemsProp?.wheelTicket ?? null,
+            gstSummary: bill.gstSummary ?? invoiceBillDetail?.data?.gstSummary ?? [],
+            totalGst: bill.totalGst ?? invoiceBillDetail?.data?.totalGst,
             loyaltyRedeemDiscount:
                 bill.loyaltyRedeemDiscount ?? bill.loyaltyRedeemed ?? bill.loyalty?.redeemDiscount,
             couponDiscountAmount: getCouponDiscountAmount({
@@ -109,6 +115,9 @@ const KOTPrintModal = ({ isOpen, onClose, selectedItems: selectedItemsProp, auto
                 salePrice: Number(item.sale_price),
                 inventoryPriceLayerId: item.inventoryPriceLayerId,
                 isOfferFreeItem: item.isOfferFreeItem,
+                offerName: item.offerName,
+                offerAppliedType: item.offerAppliedType,
+                offerDiscountAmount: item.offerDiscountAmount,
             })),
         };
     };
@@ -153,6 +162,7 @@ const KOTPrintModal = ({ isOpen, onClose, selectedItems: selectedItemsProp, auto
         };
     }, [isOpen, autoPrint, selectedItems]);
 
+    const wheelTicket = selectedItems?.wheelTicket ?? null;
     const items = selectedItems?.saleItems ?? selectedItems?.items ?? []
     const billPayments = normalizeBillPayments(selectedItems);
     const getPaymentTotal = (mode) =>
@@ -177,13 +187,39 @@ const KOTPrintModal = ({ isOpen, onClose, selectedItems: selectedItemsProp, auto
     );
     const itemDiscountAmount = Math.max(0, Number(selectedItems?.totalAmount || 0) - totalBillAmount);
     const totalSavingsAmount = Number(selectedItems?.savingAmount ?? selectedItems?.discountAmount ?? 0);
+    // Schemes that gave a discount on this bill. Item-price scheme discounts are already inside the line
+    // prices; the bill-level scheme discount is taken off the total.
+    const schemeList = (Array.isArray(selectedItems?.billingSchemes) ? selectedItems.billingSchemes : []).filter(
+        (scheme) => Number(scheme?.discountAmount) > 0
+    );
+    const hasSchemeList = schemeList.length > 0;
+    const itemSchemeDiscountAmount = roundToDecimals(
+        schemeList
+            .filter((scheme) => scheme.schemeType !== "BILL_DISCOUNT")
+            .reduce((sum, scheme) => sum + Number(scheme.discountAmount || 0), 0)
+    );
+    const billSchemeDiscountAmount = roundToDecimals(
+        schemeList
+            .filter((scheme) => scheme.schemeType === "BILL_DISCOUNT")
+            .reduce((sum, scheme) => sum + Number(scheme.discountAmount || 0), 0)
+    );
+    const totalSchemeDiscountAmount = roundToDecimals(itemSchemeDiscountAmount + billSchemeDiscountAmount);
+    // Old bills without a scheme list keep the earlier behaviour.
     const inferredSchemeDiscountAmount =
         items.length > 0 && selectedItems?.totalAmount != null
             ? Math.max(0, totalSavingsAmount - itemDiscountAmount - couponDiscountAmount)
             : 0;
-    const schemeDiscountAmount = Math.max(
-        0,
-        Number(selectedItems?.schemeDiscountAmount) || inferredSchemeDiscountAmount
+    const schemeDiscountAmount = hasSchemeList
+        ? billSchemeDiscountAmount
+        : Math.max(0, Number(selectedItems?.schemeDiscountAmount) || inferredSchemeDiscountAmount);
+    // Bill amount before schemes: line amounts + the item-price scheme discount already taken off the lines.
+    const billAmountBeforeSchemes = roundToDecimals(totalBillAmount + itemSchemeDiscountAmount);
+    // GST split by rate (from the server: item GST rates are kept in step with BUSY).
+    const gstRows = (Array.isArray(selectedItems?.gstSummary) ? selectedItems.gstSummary : []).filter(
+        (g) => g && Number(g.amount) > 0
+    );
+    const totalGstAmount = roundToDecimals(
+        Number(selectedItems?.totalGst) || gstRows.reduce((sum, g) => sum + Number(g.totalGst || 0), 0)
     );
     const srnAdjustmentAmount = getPaymentTotal("srn_adjustment");
     const payableBeforeRounding = Math.max(
@@ -373,10 +409,19 @@ const KOTPrintModal = ({ isOpen, onClose, selectedItems: selectedItemsProp, auto
                                             <div></div>
                                             <div className="grid grid-cols-3 items-center gap-1">
                                                 <div>{priceFormat(getItemMrp(p))}</div>
-                                                <div className="text-end">{priceFormat(getItemSalePrice(p))}</div>
-                                                <div className="text-end">{priceFormat(getItemTotalAmount(p))}</div>
+                                                <div className="text-end font-extrabold">
+                                                    {isItemFree(p) ? "FREE" : priceFormat(getItemSalePrice(p))}
+                                                </div>
+                                                <div className="text-end font-extrabold">
+                                                    {isItemFree(p) ? "FREE" : priceFormat(getItemTotalAmount(p))}
+                                                </div>
                                             </div>
                                         </div>
+                                        {p?.offerName && p?.offerAppliedType === "BILLING_SCHEME" && Number(p?.offerDiscountAmount) > 0 && (
+                                            <div className="pl-6 text-[9px] font-normal italic leading-3 text-third-800">
+                                                Scheme: {p.offerName} (-{priceFormat(p.offerDiscountAmount)})
+                                            </div>
+                                        )}
 
                                         {/* Offer product */}
                                         {p?.offerProduct && p?.offerType !== "DISCOUNT" && (
@@ -411,8 +456,30 @@ const KOTPrintModal = ({ isOpen, onClose, selectedItems: selectedItemsProp, auto
                                 <div className="w-full px-2 py-1 text-[11px] font-bold">
                                     <div className="flex justify-between gap-2 py-0.5">
                                         <span>Total Bill Amount</span>
-                                        <span>{priceFormat(totalBillAmount)}</span>
+                                        <span>{priceFormat(hasSchemeList ? billAmountBeforeSchemes : totalBillAmount)}</span>
                                     </div>
+                                    {hasSchemeList &&
+                                        schemeList.map((scheme, index) => (
+                                            <div key={`${scheme.schemeId ?? scheme.schemeName}-${index}`} className="flex justify-between gap-2 py-0.5">
+                                                <span className="min-w-0 break-words">
+                                                    Scheme: {scheme.schemeName}
+                                                    {Number(scheme.qty) > 0 ? ` (${scheme.qty} qty)` : ""}
+                                                </span>
+                                                <span className="whitespace-nowrap">-{priceFormat(scheme.discountAmount)}</span>
+                                            </div>
+                                        ))}
+                                    {hasSchemeList && schemeList.length > 1 && (
+                                        <div className="flex justify-between gap-2 py-0.5">
+                                            <span>Total Scheme Discount</span>
+                                            <span>-{priceFormat(totalSchemeDiscountAmount)}</span>
+                                        </div>
+                                    )}
+                                    {!hasSchemeList && schemeDiscountAmount > 0 && (
+                                        <div className="flex justify-between gap-2 py-0.5">
+                                            <span>Scheme Discount</span>
+                                            <span>-{priceFormat(schemeDiscountAmount)}</span>
+                                        </div>
+                                    )}
                                     {loyaltyRedeemedAmount > 0 && (
                                         <div className="flex justify-between gap-2 py-0.5">
                                             <span>Loyalty Redeemed</span>
@@ -423,12 +490,6 @@ const KOTPrintModal = ({ isOpen, onClose, selectedItems: selectedItemsProp, auto
                                         <div className="flex justify-between gap-2 py-0.5">
                                             <span>Coupon Discount</span>
                                             <span>-{priceFormat(couponDiscountAmount)}</span>
-                                        </div>
-                                    )}
-                                    {schemeDiscountAmount > 0 && (
-                                        <div className="flex justify-between gap-2 py-0.5">
-                                            <span>Scheme Discount</span>
-                                            <span>-{priceFormat(schemeDiscountAmount)}</span>
                                         </div>
                                     )}
                                     <div className="flex justify-between gap-2 py-0.5">
@@ -486,22 +547,28 @@ const KOTPrintModal = ({ isOpen, onClose, selectedItems: selectedItemsProp, auto
                                         <span>Total Saving</span>
                                         <span>{priceFormat(selectedItems?.savingAmount ?? 0)}</span>
                                     </div> */}
-                                    {/* <div className="grid grid-cols-[52px_1fr_1fr_1fr] gap-1 text-[11px] mb-1">
-                                        <span className="underline">Tax Rate</span>
-                                        <span className="text-right underline">Taxable Amt.</span>
-                                        <span className="text-right underline">CGST Amt.</span>
-                                        <span className="text-right underline">SGST Amt.</span>
-
-                                        <span className="font-medium">18%</span>
-                                        <span className="font-medium text-right">509.28</span>
-                                        <span className="font-medium text-right">45.84</span>
-                                        <span className="font-medium text-right">45.84</span>
-                                    </div> */}
-
-                                    {/* <div className="grid grid-cols-[100px_1fr] gap-1 py-0.5">
-                                        <span>Total GST</span>
-                                        <span>: {priceFormat(91.68)}</span>
-                                    </div> */}
+                                    {gstRows.length > 0 && (
+                                        <div className="mb-1 text-[10px]">
+                                            <div className="grid grid-cols-[40px_1fr_1fr_1fr] gap-1 mb-0.5">
+                                                <span className="underline">GST %</span>
+                                                <span className="text-right underline">Taxable Amt.</span>
+                                                <span className="text-right underline">CGST Amt.</span>
+                                                <span className="text-right underline">SGST Amt.</span>
+                                            </div>
+                                            {gstRows.map((g) => (
+                                                <div key={g.rate} className="grid grid-cols-[40px_1fr_1fr_1fr] gap-1">
+                                                    <span className="font-medium">{g.rate}%</span>
+                                                    <span className="font-medium text-right">{priceFormat(g.taxableAmount)}</span>
+                                                    <span className="font-medium text-right">{priceFormat(g.cgst)}</span>
+                                                    <span className="font-medium text-right">{priceFormat(g.sgst)}</span>
+                                                </div>
+                                            ))}
+                                            <div className="mt-0.5 grid grid-cols-[100px_1fr] gap-1 py-0.5">
+                                                <span>Total GST</span>
+                                                <span>: {priceFormat(totalGstAmount)}</span>
+                                            </div>
+                                        </div>
+                                    )}
 
                                     {normalizeBillPayments(selectedItems).length > 0 && (
                                         <div className="grid grid-cols-[100px_1fr] gap-1 py-0.5">
@@ -615,6 +682,53 @@ const KOTPrintModal = ({ isOpen, onClose, selectedItems: selectedItemsProp, auto
                                         <QRCode value={selectedItems?.invoiceNo ?? selectedItems?.bill?.invoiceNo ?? ""} size={90} />
                                     </div>
                                 </div>
+
+                                {wheelTicket && wheelTicket.status !== "CANCELLED" && (
+                                    // Second print of the same job: its own page, so the printer cuts it as a separate slip.
+                                    <div
+                                        className="flex flex-col items-center gap-1 pt-2 text-center"
+                                        style={{ breakBefore: "page", pageBreakBefore: "always" }}
+                                    >
+                                        <img src={Logo} alt="logo" className="w-24" />
+                                        <div className="w-full border-y border-third-500 py-1 text-base font-bold tracking-wide">
+                                            WHEEL TICKET
+                                        </div>
+                                        <div className="text-[11px] font-bold">TICKET NO</div>
+                                        <div className="text-2xl font-extrabold tracking-wider">{wheelTicket.ticketNo}</div>
+                                        <div className="w-full border-t border-dashed border-third-500 pt-1 text-xs">
+                                            <div className="flex justify-between">
+                                                <span>Bill No</span>
+                                                <span className="font-bold">{wheelTicket.invoiceNo}</span>
+                                            </div>
+                                            <div className="flex justify-between">
+                                                <span>Customer</span>
+                                                <span className="font-bold">{wheelTicket.customerPhone}</span>
+                                            </div>
+                                            {wheelTicket.customerName && (
+                                                <div className="flex justify-between">
+                                                    <span>Name</span>
+                                                    <span className="font-bold">
+                                                        {initialLettersCapitalize(wheelTicket.customerName)}
+                                                    </span>
+                                                </div>
+                                            )}
+                                            <div className="flex justify-between">
+                                                <span>Bill Amount</span>
+                                                <span className="font-bold">{priceFormat(wheelTicket.billAmount)}</span>
+                                            </div>
+                                        </div>
+                                        <div className="w-full border-y border-third-500 py-1 text-sm font-bold">
+                                            VALID ONLY ON {format(new Date(`${wheelTicket.validOn}T00:00:00`), "dd MMM yyyy").toUpperCase()}
+                                        </div>
+                                        <div className="text-[11px] font-bold">
+                                            SHOW THIS TICKET AT THE SPIN COUNTER TO PLAY THE WHEEL
+                                        </div>
+                                        <div className="text-[10px]">Not valid after the date above. Non-transferable.</div>
+                                        <div className="mb-2 flex w-full items-center! justify-center">
+                                            <QRCode value={wheelTicket.ticketNo} size={80} />
+                                        </div>
+                                    </div>
+                                )}
                             </div>
                         )}
                     </div>

@@ -18,6 +18,8 @@ import { syncDayBillsToServer, uploadInvoicesToServer } from "../../../../kit/ut
 import { useGetAllDayEnd } from "../../../../kit/hooks/data/dayEnd";
 import { useAdvanceSlips } from "../../../../kit/hooks/data/cashierAdvance";
 import KitLoader from "../../../../kit/components/KitLoader/KitLoader";
+import KitDeleteDialog from "../../../../kit/components/KitDeleteDialog";
+import { DAY_STATUS, getServerDayStatus } from "../../../../kit/utils/daySession";
 import { buildSlipFromDayBill, dayEndParams, localPaymentTotals } from "../../../../kit/utils/settlementSlip";
 
 const BillFormModal = ({
@@ -66,6 +68,7 @@ const BillFormModal = ({
     );
     const [voucherSlipOpen, setVoucherSlipOpen] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
+    const [confirmEndOpen, setConfirmEndOpen] = useState(false);
     const [advanceSlipOpen, setAdvanceSlipOpen] = useState(false);
     // "pending" until unsynced bills are uploaded, so the server day-end totals include them.
     const [billsSync, setBillsSync] = useState("pending");
@@ -191,6 +194,37 @@ const BillFormModal = ({
     const submittedTotalCash = submittedCash.reduce( (sum, item) => sum + item.denomination * Number(item.count || 0), 0);
     const submittedTotalNotes = submittedCash.reduce((sum, item) => sum + Number(item.count || 0), 0);
 
+    const restoreTodayStartFromServer = async (cashier) => {
+        const server = await getServerDayStatus(String(cashier.id), today);
+        const log = server?.todayLog;
+
+        if (server?.status !== DAY_STATUS.STARTED || !log) {
+            throw new Error(
+                server
+                    ? "Unable to find today's start-day record on this computer or the server."
+                    : "Today's start-day record is not on this computer. Connect to the internet and try again."
+            );
+        }
+
+        const opening = log.opening || {};
+        const startDenominations = opening.denominations || log.startDenominations || [];
+        const startRecord = {
+            userId: String(cashier.id),
+            cashier: `${userData?.firstName || ""} ${userData?.lastName || ""}`.trim(),
+            date: today,
+            start: {
+                date: log.startAt || new Date().toISOString(),
+                denominations: startDenominations,
+                totalCash: Number(opening.totalCash ?? log.startTotalCash ?? 0),
+                totalNotes: Number(opening.totalNotes ?? log.startTotalNotes ?? 0),
+            },
+            end: null,
+        };
+
+        await getElectronApi().saveDayBill(startRecord);
+        return startRecord;
+    };
+
     const handleStartDay = async () => {
         const cashier = getLoggedInCashier(userData);
         if (!cashier.id) {
@@ -247,6 +281,49 @@ const BillFormModal = ({
         } finally {
             setIsSaving(false);
         }
+    };
+
+    // Enter in a denomination box jumps to the next box (2000 -> 500 -> 200 ...);
+    // Enter in the last box submits the form (End Day asks for confirmation first).
+    const handleDenominationEnter = (e, group) => {
+        if (e.key !== "Enter") return;
+        e.preventDefault();
+        e.stopPropagation();
+
+        const inputs = Array.from(document.querySelectorAll(`input[data-day-nav="${group}"]`));
+        const current = inputs.indexOf(e.target);
+        if (current === -1) return;
+        const next = inputs[current + 1];
+        if (next) {
+            next.focus();
+            next.select?.();
+            return;
+        }
+
+        if (group === "start") startDayButtonRef.current?.click();
+        else endDayButtonRef.current?.click();
+    };
+
+    const requestEndDay = () => {
+        const cashier = getLoggedInCashier(userData);
+        if (!cashier.id) {
+            toast.error("Unable to identify cashier. Please log in again.");
+            return;
+        }
+        if (isValidatingAdvanceSlips) {
+            toast.error("Advance amount is still loading. Please wait a moment.");
+            return;
+        }
+        if (!cash.some((item) => Number(item.count) > 0)) {
+            toast.error("Please enter at least one cash denomination count");
+            return;
+        }
+        setConfirmEndOpen(true);
+    };
+
+    const confirmEndDay = () => {
+        setConfirmEndOpen(false);
+        handleEndDay();
     };
 
     const handleEndDay = async () => {
@@ -321,10 +398,12 @@ const BillFormModal = ({
         setIsSaving(true);
         try {
             const dayBills = await getElectronApi().getDayBills(String(cashier.id));
-            const todayBill = dayBills.find((bill) => bill.date === today);
+            let todayBill = dayBills.find((bill) => bill.date === today);
 
             if (!todayBill) {
-                throw new Error("Unable to find today's start-day record.");
+                // The day can be open on the server while this computer has no local record
+                // (local data cleared, day started on another PC, ...). Rebuild it from the server.
+                todayBill = await restoreTodayStartFromServer(cashier);
             }
 
             // const startingCash = Number(todayBill.start?.totalCash || 0);
@@ -389,7 +468,9 @@ const BillFormModal = ({
         const handleKeyDown = (e) => {
             if (e.key !== "Enter") return;
 
-            if (advanceSlipOpen || voucherSlipOpen) return;
+            if (advanceSlipOpen || voucherSlipOpen || confirmEndOpen) return;
+            // Denomination boxes handle Enter themselves (move to the next box).
+            if (e.target?.dataset?.dayNav) return;
 
             e.preventDefault();
 
@@ -405,7 +486,7 @@ const BillFormModal = ({
         window.addEventListener("keydown", handleKeyDown);
 
         return () => window.removeEventListener("keydown", handleKeyDown);
-    }, [isOpen, isSaving, isTodayStarted, isTodayEnded, advanceSlipOpen, voucherSlipOpen]);
+    }, [isOpen, isSaving, isTodayStarted, isTodayEnded, advanceSlipOpen, voucherSlipOpen, confirmEndOpen]);
 
     return (
         <>
@@ -451,10 +532,12 @@ const BillFormModal = ({
                                                 size="small"
                                                 value={item.count}
                                                 onChange={(e) => handleCountChange(index, e.target.value)}
+                                                inputProps={{ "data-day-nav": "start" }}
                                                 onKeyDown={(e) => {
                                                     if (e.key === "-" || e.key === "Minus") {
                                                         e.preventDefault();
                                                     }
+                                                    handleDenominationEnter(e, "start");
                                                 }}
                                             />
                                         </td>
@@ -619,10 +702,12 @@ const BillFormModal = ({
                                                                     onChange={(e) =>
                                                                         handleCountChange(index, e.target.value)
                                                                     }
+                                                                    inputProps={{ "data-day-nav": "end" }}
                                                                     onKeyDown={(e) => {
                                                                         if (e.key === "-" || e.key === "Minus") {
                                                                             e.preventDefault();
                                                                         }
+                                                                        handleDenominationEnter(e, "end");
                                                                     }}
                                                                 />
                                                             </td>
@@ -687,10 +772,12 @@ const BillFormModal = ({
                                                                             e.target.value
                                                                         )
                                                                     }
+                                                                    inputProps={{ "data-day-nav": "end" }}
                                                                     onKeyDown={(e) => {
                                                                         if (e.key === "-" || e.key === "Minus") {
                                                                             e.preventDefault();
                                                                         }
+                                                                        handleDenominationEnter(e, "end");
                                                                     }}
                                                                 />
                                                             </td>
@@ -837,7 +924,7 @@ const BillFormModal = ({
                             variant="contained"
                             className="w-auto"
                             size="small"
-                            onClick={handleEndDay}
+                            onClick={requestEndDay}
                             disabled={isSaving}
                         >
                             {isSaving ? "Saving..." : "End Day"}
@@ -871,6 +958,15 @@ const BillFormModal = ({
                     </div>
                 </KitModal>
             )}
+
+            <KitDeleteDialog
+                isOpen={confirmEndOpen && isEndDayForm}
+                onClose={() => setConfirmEndOpen(false)}
+                onDelete={confirmEndDay}
+                title="End Day"
+                subTitle={`Counter cash ${priceFormat(totalCash)}, submitted cash ${priceFormat(submittedTotalCash)}. Do you want to submit and end the day?`}
+                cancelButtonText="No"
+            />
 
             <Backdrop
                 open={isSaving && isTodayStarted && !isTodayEnded}

@@ -34,6 +34,14 @@ const Line = ({ label, value }) => (
     </div>
 );
 
+// Label on the left, amount right-aligned (used for all money lines of the slip).
+const AmtLine = ({ label, value, className = "" }) => (
+    <div className={`flex justify-between gap-2 ${className}`}>
+        <span>{label}</span>
+        <span className="text-right">{value}</span>
+    </div>
+);
+
 const DenominationDetails = ({ title, denominations }) => {
     const rows = denominationRows(denominations);
     return (
@@ -282,45 +290,40 @@ export default function SettlementSlipModal({ isOpen, onClose, slip, store }) {
                             </div>
                             <Dashed />
 
-                            <Line label="CASH" value={amount(s.cashSale)} />
-                            <Line label="C CARD AMOUNT" value={amount(s.cardSale)} />
-                            {/* <Line label="C CARD AMT ENT" value={amount(s.cardEntered)} /> */}
-                            <Line label="UPI AMOUNT" value={amount(s.upiSale)} />
-                            {/* <Line label="UPI AMT ENT" value={amount(s.upiEntered)} /> */}
-                            <Line label="AMEX/SODEXO AMT" value={amount(s.sodexoSale)} />
-                            {/* <Line label="AMEX/SODEXO ENT" value={amount(s.sodexoEntered)} /> */}
-                            {s.otherSale > 0 && <Line label="OTHER AMOUNT" value={amount(s.otherSale)} />}
-                            <Line label="TOTAL AMOUNT" value={amount(s.billAmount)} />
-
-                            <div className="my-2 text-center text-[14px] font-bold">
-                                <div>TOTAL BILL : {s.totalBills}</div>
-                                <div>TOTAL BILL AMOUNT : {amount(s.totalBillAmount)}</div>
-                            </div>
-                            <Line label="SALE RETURN ADJ" value={amount(s.saleReturnAdj)} />
-
-                            <div className="my-2 text-center text-[14px] font-bold">
-                                TOTAL AMOUNT : {amount(s.totalAmount)}
-                            </div>
-
-                            <Line label="SALE RETURN TOBE" value={amount(s.saleReturn)} />
+                            <AmtLine label="TOTAL CASH" value={amount(s.cashSale)} />
+                            <AmtLine label="TOTAL CARD" value={amount(s.cardSale)} />
+                            <AmtLine label="TOTAL UPI" value={amount(s.upiSale)} />
+                            <AmtLine label="AMEX/SODEXO" value={amount(s.sodexoSale)} />
+                            {s.otherSale > 0 && <AmtLine label="OTHER" value={amount(s.otherSale)} />}
                             <Dashed />
-                            <Line label="OPENING CASH" value={amount(s.openingCash)} />
-                            <Line label="+ CASH SALE" value={amount(s.cashSale)} />
-                            {s.cashRefund > 0 && <Line label="- CASH REFUND" value={amount(s.cashRefund)} />}
-                            <Line label={`- ADVANCES (${s.advanceCount})`} value={amount(s.advanceAmount)} />
-                            {s.voucherAmount > 0 && <Line label={`- VOUCHERS (${s.voucherCount})`} value={amount(s.voucherAmount)} />}
-                            <Line label="EXPECTED CASH" value={amount(s.expectedCash)} />
+                            <AmtLine label="BILL AMOUNT" value={amount(s.billAmount)} />
+                            <AmtLine label="CASH RETURN" value={amount(s.saleReturn)} />
+                            <AmtLine label="CASH AFTER SRC" value={amount(s.cashSale - s.saleReturn)} />
+                            <AmtLine label="SRN ADJUSTED" value={amount(s.srnAdjustment)} />
                             <Dashed />
-                            <Line label="COUNTER SUMMARY" value={amount(s.counterCash)} />
-                            <Line label="SUBMITTED SUMMARY" value={amount(s.submittedCash)} />
+                            <AmtLine label="TOTAL ORDER" value={s.totalBills} className="my-1 text-[15px] font-bold" />
+                            <AmtLine
+                                label="NET TOTAL AMOUNT"
+                                value={amount(s.totalAmount)}
+                                className="my-1 text-[15px] font-bold"
+                            />
+                            <Dashed />
+                            <AmtLine label="OPENING CASH" value={amount(s.openingCash)} />
+                            <AmtLine label="+ CASH SALE" value={amount(s.cashSale)} />
+                            {s.cashRefund > 0 && <AmtLine label="- CASH REFUND" value={amount(s.cashRefund)} />}
+                            <AmtLine label={`- ADVANCES (${s.advanceCount})`} value={amount(s.advanceAmount)} />
+                            {s.voucherAmount > 0 && <AmtLine label={`- VOUCHERS (${s.voucherCount})`} value={amount(s.voucherAmount)} />}
+                            <Dashed />
+                            <AmtLine label="COUNTER SUMMARY" value={amount(s.counterCash)} />
+                            <AmtLine label="SUBMITTED SUMMARY" value={amount(s.submittedCash)} />
                             <div className="mt-1 text-[13px] font-bold">
-                                <Line label="SHORTAGE" value={amount(s.shortage)} />
-                                <Line label="EXCESS" value={amount(s.excess)} />
+                                <AmtLine label="SHORTAGE" value={amount(s.shortage)} />
+                                <AmtLine label="EXCESS" value={amount(s.excess)} />
                             </div>
-                            <Line label="CARD ISSUED" value={0} />
-                            <Line label="CARD RENEWED" value={0} />
-                            {slip?.givenTo && <Line label="ADV GIVEN TO" value={slip.givenTo} />}
-                            {slip?.voucherRemark && <Line label="VOUCHER RMK" value={slip.voucherRemark} />}
+                            <AmtLine label="CARD ISSUED" value={0} />
+                            <AmtLine label="CARD RENEWED" value={0} />
+                            {slip?.givenTo && <AmtLine label="ADV GIVEN TO" value={slip.givenTo} />}
+                            {slip?.voucherRemark && <AmtLine label="VOUCHER RMK" value={slip.voucherRemark} />}
                             <Dashed />
 
                             <div>REMARKS :</div>

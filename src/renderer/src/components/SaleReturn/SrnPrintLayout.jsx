@@ -37,7 +37,10 @@ export default function SrnPrintLayout({ payload = {} }) {
     const totalReturnAmount = items.reduce((total, item) => total + getLineRefund(item), 0);
     const refundAmount = Number(srn.refundAmount ?? refundPayment.amount ?? totalReturnAmount);
     const returnDate = srn.approvedAt || srn.initiatedAt || srn.returnDate;
-    const customer = srn.customer || originalBill.customer;
+    const customer =
+        srn.customer ||
+        originalBill.customer ||
+        (srn.customerId ? { phone: srn.customerId } : null);
     const cashier = srn.cashier || srn.initiatedBy;
     const manager = srn.approvedBy || srn.manager;
     const srnNumber = srn.srnNumber || srn.returnInvoiceNo || "-";
@@ -91,11 +94,11 @@ export default function SrnPrintLayout({ payload = {} }) {
                 </div>
                 <div className="grid grid-cols-[100px_1fr] gap-1 py-0.5 text-[10px]">
                     <span>Customer Name :</span>
-                    <span className="font-medium">{getPersonDisplayName(customer)}</span>
+                    <span className="font-bold">{getPersonDisplayName(customer)}</span>
                 </div>
                 <div className="grid grid-cols-[100px_1fr] gap-1 py-0.5 text-[10px]">
                     <span>Cust Mobile No :</span>
-                    <span className="font-medium">{customer?.phone || "-"}</span>
+                    <span className="font-bold">{customer?.phone || srn.customerId || "-"}</span>
                 </div>
             </div>
 

@@ -19,6 +19,7 @@ export default function SchemeModal({
     onClose,
     storeId,
     items,
+    customerPhone = "",
     selectedSchemeIds = [],
     onSelectionChange,
     onApply,
@@ -40,6 +41,7 @@ export default function SchemeModal({
                 const response = await AvailableScheme({
                     storeId,
                     cartItems: buildCouponItems(items),
+                    ...(customerPhone && { customerPhone }),
                 });
 
                 if (!isActive) return;
@@ -54,7 +56,7 @@ export default function SchemeModal({
         return () => {
             isActive = false;
         };
-    }, [open, storeId, items, refreshKey]);
+    }, [open, storeId, items, refreshKey, customerPhone]);
 
     useEffect(() => {
         if (!open || isAvailableScheme) return;
@@ -68,8 +70,22 @@ export default function SchemeModal({
         }
     }, [availableSchemeList, isAvailableScheme, onSelectionChange, open, selectedSchemeIds]);
 
+    // Several offers can be applied together. Only one bill-discount offer works on a bill, so picking another
+    // bill-discount offer replaces the earlier one.
     const toggleScheme = (id) => {
-        onSelectionChange(selectedSchemeIds[0] === id ? [] : [id]);
+        if (selectedSchemeIds.includes(id)) {
+            onSelectionChange(selectedSchemeIds.filter((selectedId) => selectedId !== id));
+            return;
+        }
+        const picked = availableSchemeList.find((scheme) => Number(scheme.id) === id);
+        if (picked?.schemeType === "BILL_DISCOUNT") {
+            const otherBillDiscountIds = availableSchemeList
+                .filter((scheme) => scheme.schemeType === "BILL_DISCOUNT" && Number(scheme.id) !== id)
+                .map((scheme) => Number(scheme.id));
+            onSelectionChange([...selectedSchemeIds.filter((selectedId) => !otherBillDiscountIds.includes(selectedId)), id]);
+            return;
+        }
+        onSelectionChange([...selectedSchemeIds, id]);
     };
 
     const applySelectedSchemes = useCallback(() => {
@@ -171,7 +187,7 @@ export default function SchemeModal({
                 <div>
                     <div className="text-base font-semibold text-third-950">Available schemes</div>
                     <div className="text-xs text-third-500">
-                        Select one offer to apply ({selectedSchemeIds.length} selected)
+                        Select the offers to apply - several can be used together ({selectedSchemeIds.length} selected)
                     </div>
                 </div>
             }
@@ -197,7 +213,7 @@ export default function SchemeModal({
                             const isSelected = selectedSchemeIds.includes(id);
                             const itemNames = (scheme.items || []).map((item) => item.itemName).filter(Boolean);
                             const discountAmount = Number(scheme.discountAmount) || 0;
-                            const willAddItem = scheme.itemInCart === false;
+                            const willAddItem = scheme.itemInCart === false || (scheme.autoAddItems?.length > 0 && Number(scheme.eligibleQty) > 0);
                             const message = scheme.message?.replace(/^Applied:\s*/i, "");
 
                             return (
@@ -231,7 +247,7 @@ export default function SchemeModal({
                                                     : "bg-green-100 text-green-800"
                                             }`}
                                         >
-                                            {willAddItem ? "ITEM ADDED ON APPLY" : "READY TO APPLY"}
+                                            {willAddItem ? (scheme.itemInCart === false ? "ITEM ADDED ON APPLY" : `+${scheme.autoAddItems?.[0]?.qty || 1} QTY ADDED ON APPLY`) : "READY TO APPLY"}
                                         </span>
                                         {discountAmount > 0 && (
                                             <span className="rounded-lg bg-green-100 px-2.5 py-1 text-sm font-bold text-green-800">
@@ -297,7 +313,7 @@ export default function SchemeModal({
                     Cancel
                 </KitButton>
                 <KitButton variant="contained" className="w-auto" size="small" onClick={applySelectedSchemes}>
-                    Apply offer (Press A)
+                    Apply offers (Press A)
                 </KitButton>
             </div>
         </KitModal>

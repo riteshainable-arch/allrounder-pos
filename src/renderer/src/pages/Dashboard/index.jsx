@@ -42,7 +42,7 @@ import PaymentCollectionModal from "../../components/Dashboard/PaymentCollection
 import SaleReturnModal from "../../components/SaleReturn/SaleReturnModal";
 import StartDayScreen from "../../components/Dashboard/StartDayScreen";
 import { useDaySessionContext } from "../../../../kit/hooks/DaySessionProvider";
-import { DAY_STATUS, getLocalDayStatus } from "../../../../kit/utils/daySession";
+import { DAY_STATUS, getLocalDayStatus, getTodayDate } from "../../../../kit/utils/daySession";
 import { useGetOneLastOrderNumber } from "../../../../kit/hooks/data/lastOrderNumber";
 import useOnlineStatus from "../../../../kit/hooks/useOnlineStatus";
 import useLoyaltyCart from "../../../../kit/hooks/useLoyaltyCart";
@@ -50,6 +50,7 @@ import { isLoyaltyRedeemRejected, getApiErrorMessage } from "../../../../kit/hoo
 import { mergeServerLoyaltyBill } from "../../../../kit/utils/loyalty";
 import LoyaltyRedeemPanel, { LoyaltyExcludedBadge } from "../../components/Dashboard/LoyaltyRedeemPanel";
 import { WheelCouponBadge } from "../../components/Dashboard/WheelCouponPanel";
+import WheelTicketModal from "../../components/Dashboard/WheelTicketModal";
 import MenuDrawer from "../../components/Dashboard/MenuDrawer";
 import { useCashierLogs } from "../../../../kit/hooks/data/cashierLog";
 import { useAutoSyncContext } from "../../../../kit/hooks/AutoSyncProvider";
@@ -160,6 +161,9 @@ export default function Dashboard() {
     const [focOfferOpen, setFocOfferOpen] = useState(false);
     const [showMenuDrawer, setShowMenuDrawer] = useState(false);
     const [showPaymentModal, setShowPaymentModal] = useState(false);
+    // Wheel coupon bill: ticket + coupon picked on this screen, applied when Collect Payment opens.
+    const [showWheelTicket, setShowWheelTicket] = useState(false);
+    const [wheelSelection, setWheelSelection] = useState(null);
     const [showSaleReturnModal, setShowSaleReturnModal] = useState(false);
     const [showStartDayModal, setShowStartDayModal] = useState(false);
     const [buttonText, setButtonText] = useState("Start Day");
@@ -247,6 +251,14 @@ export default function Dashboard() {
     });
     const phone = watch("phone");
     const customerName = watch("name");
+
+    // The ticket belongs to one customer and one bill: drop the selection when the bill is cleared or the customer changes.
+    useEffect(() => {
+        if (!wheelSelection) return;
+        if (cartRows.length === 0 || String(phone || "").trim() !== wheelSelection.phone) {
+            setWheelSelection(null);
+        }
+    }, [cartRows.length, phone, wheelSelection]);
 
     // const selectedCustomerProfile = customerProfiles.find(
     //     (item) => item.customer.phone === phone
@@ -462,19 +474,80 @@ export default function Dashboard() {
     // (the item does not have to be scanned first). Rows added this way carry `schemeAutoAddedFor`
     // so they can be swapped / removed when the cashier changes or clears the offer.
     // Returns the full cart that the scheme should be evaluated against.
-    const handleSyncSchemeItems = async (schemeId, autoAddItems = []) => {
-        if (!schemeId) {
+    // `selections` = [{ schemeId, autoAddItems }] for every selected offer (several offers can apply to one bill);
+    // an empty list takes every offer item back.
+    // Wheel coupon bill: make sure the prize item is on the bill (adds 1 unit when missing).
+    // Returns the cart rows to evaluate the coupon against (state updates are async).
+    const handleEnsureWheelItem = async (wheelItem) => {
+        const code = String(wheelItem?.itemCode ?? "").trim().toLowerCase();
+        if (!code) return cartRows;
+        const matches = (product) =>
+            String(product.itemCode ?? product.productCode ?? "").trim().toLowerCase() === code;
+        if (cartRows.some((row) => !row.isOfferItem && matches(row))) return cartRows;
+
+        let product = productsList.find(matches);
+        // The local product search works on name / barcode, so try the item code and the name.
+        for (const query of [wheelItem.itemCode, wheelItem.itemName]) {
+            if (product || !query) continue;
+            try {
+                const found = await window.api.getProducts(String(query));
+                product = (found || []).find(matches);
+            } catch (error) {
+                product = null;
+            }
+        }
+        if (!product) {
+            toast.error(`Wheel item ${wheelItem.itemName || wheelItem.itemCode} was not found in this store's stock.`);
+            return cartRows;
+        }
+        const nextRows = updateNormalRow(cartRows, product, 1);
+        setCartRows(nextRows);
+        return nextRows;
+    };
+
+    // Cashier picked the wheel coupon (customer number + ticket verified): put the prize item on the bill and
+    // remember the ticket + coupon. Collect Payment applies them.
+    const handleWheelPick = async ({ coupon, ticketNo }) => {
+        setShowWheelTicket(false);
+        const codes = new Set((coupon?.itemCodes || []).map((code) => String(code).trim().toLowerCase()));
+        const inCart = cartRows.some(
+            (row) => !row.isOfferItem && codes.has(String(row.itemCode ?? row.productCode ?? "").trim().toLowerCase())
+        );
+        if (!inCart && coupon?.items?.[0]) await handleEnsureWheelItem(coupon.items[0]);
+        setWheelSelection({
+            ticketNo,
+            couponCode: coupon.code,
+            couponName: coupon.name,
+            phone: String(phone || "").trim(),
+        });
+        toast.success(`Wheel coupon ${coupon.code} selected for ticket ${ticketNo}. Press Collect Payment.`);
+    };
+
+    const handleSyncSchemeItems = async (selections = []) => {
+        const wanted = (Array.isArray(selections) ? selections : []).filter((selection) => selection?.schemeId);
+        const keepSchemeIds = new Set(wanted.map((selection) => String(selection.schemeId)));
+        // Rows these offers (or earlier ones) added: a row the cashier had already scanned only gets its
+        // quantity put back (`schemeBaseQty`), a row created by an offer is removed.
+        const dropSchemeRows = (rows) =>
+            rows.flatMap((row) => {
+                if (!row.schemeAutoAddedFor) return [row];
+                if (keepSchemeIds.has(String(row.schemeAutoAddedFor))) return [row];
+                if (Number(row.schemeBaseQty) > 0) {
+                    const { schemeAutoAddedFor: _tag, schemeBaseQty: _base, ...rest } = row;
+                    return [{ ...rest, quantity: row.schemeBaseQty }];
+                }
+                return [];
+            });
+
+        if (!wanted.length) {
             // Functional update so a late call (e.g. modal closing after the bill was saved) can't bring back a cleared cart.
-            setCartRows((prev) => (prev.some((row) => row.schemeAutoAddedFor) ? prev.filter((row) => !row.schemeAutoAddedFor) : prev));
-            return cartRows.filter((row) => !row.schemeAutoAddedFor);
+            setCartRows((prev) => (prev.some((row) => row.schemeAutoAddedFor) ? dropSchemeRows(prev) : prev));
+            return dropSchemeRows(cartRows);
         }
 
-        const keepRows = cartRows.filter(
-            (row) => !row.schemeAutoAddedFor || (schemeId && String(row.schemeAutoAddedFor) === String(schemeId))
-        );
-        let nextRows = keepRows;
+        let nextRows = dropSchemeRows(cartRows);
 
-        if (schemeId && autoAddItems.length > 0) {
+        for (const { schemeId, autoAddItems = [] } of wanted) {
             for (const schemeItem of autoAddItems) {
                 const code = String(schemeItem.itemCode ?? "").trim().toLowerCase();
                 const barcode = String(schemeItem.barcode ?? "").trim().toLowerCase();
@@ -482,13 +555,26 @@ export default function Dashboard() {
                     (code && String(product.itemCode ?? product.productCode ?? "").trim().toLowerCase() === code) ||
                     (barcode && getProductBarcodes(product).includes(barcode));
 
-                // The item is already on the bill (scanned, or added earlier by this offer) - nothing to add.
-                if (nextRows.some((row) => !row.isOfferItem && matches(row))) continue;
+                const existingRow = nextRows.find((row) => !row.isOfferItem && matches(row));
+                if (existingRow) {
+                    // Already added by an offer (this one or another selected one) - nothing more to add.
+                    if (existingRow.schemeAutoAddedFor) continue;
+                    // Scanned by the cashier: the offer needs its own extra quantity on top of it.
+                    const baseQty = Number(existingRow.quantity) || 0;
+                    const addQty = Math.max(1, Number(schemeItem.qty) || 1);
+                    nextRows = nextRows.map((row) =>
+                        row === existingRow
+                            ? { ...row, quantity: baseQty + addQty, schemeAutoAddedFor: schemeId, schemeBaseQty: baseQty }
+                            : row
+                    );
+                    continue;
+                }
 
                 let product = [...cartRows, ...productsList].find(matches);
-                if (!product) {
+                for (const query of [schemeItem.barcode, schemeItem.itemCode, schemeItem.itemName]) {
+                    if (product || !query) continue;
                     try {
-                        const found = await window.api.getProducts(schemeItem.barcode || schemeItem.itemCode);
+                        const found = await window.api.getProducts(String(query));
                         product = (found || []).find(matches);
                     } catch (error) {
                         product = null;
@@ -522,7 +608,7 @@ export default function Dashboard() {
                 const qty = Math.max(1, Number(schemeItem.qty) || 1);
                 nextRows = updateNormalRow(nextRows, baseProduct, qty).map((row) =>
                     String(row.id) === String(baseProduct.id) && !row.isOfferItem
-                        ? { ...row, schemeAutoAddedFor: schemeId }
+                        ? { ...row, schemeAutoAddedFor: schemeId, schemeBaseQty: 0 }
                         : row
                 );
             }
@@ -1545,8 +1631,11 @@ export default function Dashboard() {
                 payAmount: roundToWholeRupee(paymentData.netPayable),
                 netPayable: roundToWholeRupee(paymentData.netPayable),
                 couponCode: paymentData.couponCode,
+                // Wheel coupon bill: the ticket being cashed in (server marks it used).
+                ...(paymentData.wheelTicketNo && { wheelTicketNo: paymentData.wheelTicketNo }),
                 couponDiscountAmount: roundToDecimals(paymentData.couponDiscountAmount || 0),
-                // schemeDiscountAmount: roundToDecimals(schemeDiscountAmount),
+                // Schemes that gave a discount (item price + bill discount): printed under the totals.
+                billingSchemes: Array.isArray(paymentData.schemeBreakdown) ? paymentData.schemeBreakdown : [],
                 // Bill-discount offer: the server re-checks it and records the discount against the bill.
                 ...(paymentData.billingSchemeId && { billingSchemeId: paymentData.billingSchemeId }),
                 loyaltyRedeem: redeemPoints,
@@ -1748,7 +1837,8 @@ export default function Dashboard() {
             return;
         }
 
-        const today = new Date().toISOString().split("T")[0];
+        // Local date (like the day form), not UTC: before 5:30 AM IST the UTC date is still "yesterday".
+        const today = getTodayDate();
         const todayLog = logsResponse?.data?.logs?.find(
             (log) => log.cashier?.id === loggedInCashier.id && log.date === today
         );
@@ -2095,6 +2185,7 @@ export default function Dashboard() {
         isSavingBillLoading,
         cartRows,
         showPaymentModal,
+        showWheelTicket,
         toggleShortcutModal,
         handleQuantityChange,
         toggleMenuDrawer,
@@ -2748,7 +2839,7 @@ export default function Dashboard() {
                                             </div>
                                         </div>
                                         <div className="flex flex-col items-center gap-0.5">
-                                            <div className="text-sm font-semibold text-third-500">Count of Items</div>
+                                            <div className="text-sm font-semibold text-third-500">Items Qty</div>
                                             <div className="text-base text-third font-semibold">{itemCount}</div>
                                         </div>
                                         {/* <Divider />
@@ -2774,6 +2865,30 @@ export default function Dashboard() {
                                         netPayable={netPayable}
                                     />
                                 </Paper>
+                                <div data-shortcut-ignore className="flex items-center gap-2">
+                                    <KitButton
+                                        type="button"
+                                        variant="outlined"
+                                        className="w-full"
+                                        onClick={() => {
+                                            if (!requireDayStarted()) return;
+                                            setShowWheelTicket(true);
+                                        }}
+                                        disabled={isSavingBillLoading}
+                                    >
+                                        {wheelSelection ? `Wheel: ${wheelSelection.ticketNo} · ${wheelSelection.couponCode}` : "Wheel Ticket"}
+                                    </KitButton>
+                                    {wheelSelection && (
+                                        <KitButton
+                                            type="button"
+                                            variant="text"
+                                            className="w-auto"
+                                            onClick={() => setWheelSelection(null)}
+                                        >
+                                            Remove
+                                        </KitButton>
+                                    )}
+                                </div>
                                 <KitButton
                                     type="button"
                                     variant="contained"
@@ -2998,6 +3113,8 @@ export default function Dashboard() {
                             cartRows={cartRows}
                             storeId={POS_STORE_ID}
                             onSyncSchemeItems={handleSyncSchemeItems}
+                            onEnsureWheelItem={handleEnsureWheelItem}
+                            wheelSelection={wheelSelection}
                             onGenerateInvoice={handleGenerateBill}
                             isSaving={isSavingBillLoading}
                             rating={rating}
@@ -3006,6 +3123,29 @@ export default function Dashboard() {
                             onRemarkChange={setRemark}
                         />
                     </KitShow>
+
+                    {showWheelTicket && (
+                        <WheelTicketModal
+                            open
+                            onClose={() => setShowWheelTicket(false)}
+                            customerPhone={phone}
+                            storeId={POS_STORE_ID}
+                            items={cartRows.map((item) => ({
+                                itemCode: item.itemCode || item.productCode,
+                                itemName: item.productName || item.itemName,
+                                qty: Number(item.quantity || 0),
+                                mrp: roundToDecimals(item.latestMRP ?? item.mrp ?? 0),
+                                salePrice: roundToDecimals(
+                                    item.isOfferItem ? 0 : (item.latestSalePrice ?? item.salePrice ?? item.price ?? 0)
+                                ),
+                                isOfferFreeItem: Boolean(item.isOfferItem),
+                            }))}
+                            cartItemCodes={cartRows.map((row) =>
+                                String(row.itemCode ?? row.productCode ?? "").trim().toLowerCase()
+                            )}
+                            onSelect={handleWheelPick}
+                        />
+                    )}
 
                     <KitShow show={showBillConfirmation}>
                         <KitDeleteDialog

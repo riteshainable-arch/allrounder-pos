@@ -22,6 +22,7 @@ import SchemeModal from "./SchemeModal";
 import { format } from "date-fns";
 import KitIcon from "../../../../kit/components/KitIcon/KitIcon";
 import WheelCouponPanel from "./WheelCouponPanel";
+import WheelTicketModal from "./WheelTicketModal";
 
 const createDefaultPaymentRows = (netPayable) => {
     const due = roundToWholeRupee(Math.max(0, Number(netPayable || 0)));
@@ -94,6 +95,8 @@ export default function PaymentCollectionModal({
     cartRows = [],
     storeId,
     onSyncSchemeItems,
+    onEnsureWheelItem,
+    wheelSelection = null,
 }) {
     const cashRef = useRef(null);
     const upiRef = useRef(null);
@@ -112,6 +115,7 @@ export default function PaymentCollectionModal({
     const [couponValidation, setCouponValidation] = useState(null);
     const [couponMessage, setCouponMessage] = useState("");
     const [couponMessageIsError, setCouponMessageIsError] = useState(false);
+    const [showWheelTicket, setShowWheelTicket] = useState(false);
     const [srnAdjustmentInput, setSrnAdjustmentInput] = useState("");
     const [walletDetails, setWalletDetails] = useState(null);
     const [srnLookupLoading, setSrnLookupLoading] = useState(false);
@@ -130,6 +134,8 @@ export default function PaymentCollectionModal({
     const { validateCoupon, isValidateCoupon } = useValidateCoupon();
     const couponItems = useMemo(() => buildCouponItems(cartRows), [cartRows]);
     const couponDiscountAmount = Number(couponValidation?.discountAmount || 0);
+    // A wheel-ticket coupon is shown as "Wheel", separate from a normal coupon.
+    const isWheelApplied = Boolean(couponValidation?.isValid && couponValidation?.wheelTicketNo);
     const schemeDiscountAmount = Number(totalSchemeDiscount || 0);
     const payableBeforeRounding = Math.max(
         0,
@@ -156,7 +162,7 @@ export default function PaymentCollectionModal({
         );
 
     const resetState = () => {
-        onSyncSchemeItems?.(null, []);
+        onSyncSchemeItems?.([]);
         schemeEvaluationRequestRef.current += 1;
         couponValidationRequestRef.current += 1;
         setPaymentRows(createDefaultPaymentRows(netPayable));
@@ -180,29 +186,30 @@ export default function PaymentCollectionModal({
     const toggleSchemeDialog = () => setShowSchemeDialog(!showSchemeDialog);
 
     const handleViewSchemes = () => {
-        setDraftSchemeIds(schemeIds.slice(0, 1));
+        setDraftSchemeIds(schemeIds);
         setShowSchemeDialog(true);
     };
 
     const handleApplySchemeSelection = async (selectedIds, selectedSchemes = []) => {
-        const nextSchemeIds = selectedIds.slice(0, 1);
+        // Several offers can apply on one bill (item offers each; only one bill-discount offer).
+        const nextSchemeIds = [...new Set(selectedIds.map(Number))];
         setSchemeIds(nextSchemeIds);
         setTotalSchemeDiscount(null);
         setSchemeBill(null);
         setSchemeEvaluationError("");
 
         const requestId = ++schemeEvaluationRequestRef.current;
-        // Item offers add their item to the bill when it is not there yet.
-        const selectedScheme = selectedSchemes[0];
+        // Item offers add their item to the bill when it is not there yet (or one more quantity when it is).
         const evaluationRows = onSyncSchemeItems
             ? await onSyncSchemeItems(
-                  nextSchemeIds[0] ?? null,
-                  // Item offers: the scheme item (first one) is added only if it is not on the bill yet.
-                  selectedScheme?.autoAddItems?.length
-                      ? selectedScheme.autoAddItems
-                      : selectedScheme?.items?.[0]
-                        ? [{ ...selectedScheme.items[0], qty: selectedScheme.eligibleQty || 1 }]
-                        : []
+                  selectedSchemes.map((scheme) => ({
+                      schemeId: Number(scheme.id),
+                      autoAddItems: scheme?.autoAddItems?.length
+                          ? scheme.autoAddItems
+                          : scheme?.items?.[0]
+                            ? [{ ...scheme.items[0], qty: scheme.eligibleQty || 1 }]
+                            : [],
+                  }))
               )
             : cartRows;
         const estimatedNetPayable = Math.max(
@@ -213,6 +220,7 @@ export default function PaymentCollectionModal({
             const response = await globalCouponEvaluate({
                 storeId,
                 cartItems: buildEvaluateCouponItems(evaluationRows),
+                ...(customerPhone && { customerPhone }),
                 ...(nextSchemeIds.length > 0 && { schemeIds: nextSchemeIds }),
                 date: format(new Date(), "yyyy-MM-dd"),
             });
@@ -236,6 +244,16 @@ export default function PaymentCollectionModal({
                               Array.isArray(evaluation.cartItems)
                                   ? evaluation.cartItems
                                   : null,
+                          // Every scheme that gave a discount, for the printed bill.
+                          breakdown: (Array.isArray(evaluation.schemes) ? evaluation.schemes : [])
+                              .filter((scheme) => scheme.status === "APPLIED" && Number(scheme.discountAmount) > 0)
+                              .map((scheme) => ({
+                                  schemeId: scheme.id,
+                                  schemeName: scheme.schemeName,
+                                  schemeType: scheme.schemeType,
+                                  qty: Number(scheme.appliedQty || 0),
+                                  discountAmount: roundToDecimals(Number(scheme.discountAmount)),
+                              })),
                       }
                     : null
             );
@@ -280,7 +298,7 @@ export default function PaymentCollectionModal({
         setSchemeEvaluationError("");
 
         // Take back any item the offer had added to the bill.
-        const rowsWithoutSchemeItems = onSyncSchemeItems ? await onSyncSchemeItems(null, []) : cartRows;
+        const rowsWithoutSchemeItems = onSyncSchemeItems ? await onSyncSchemeItems([]) : cartRows;
         const estimatedNetPayable = Math.max(
             0,
             Number(netPayable || 0) + rowsTotal(rowsWithoutSchemeItems) - rowsTotal(cartRows)
@@ -313,6 +331,13 @@ export default function PaymentCollectionModal({
         if (!open) {
             resetState();
         }
+    }, [open]);
+
+    // A wheel ticket + coupon picked on the billing screen is applied as soon as Collect Payment opens.
+    useEffect(() => {
+        if (!open || !wheelSelection?.couponCode) return;
+        handleApplyCoupon(wheelSelection.couponCode, { wheelTicketNo: wheelSelection.ticketNo });
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [open]);
 
     const cashAmount = useMemo(
@@ -393,7 +418,23 @@ export default function PaymentCollectionModal({
         }
     };
 
-    const handleApplyCoupon = async (codeOverride) => {
+    // Cashier picked the coupon the customer won with a wheel ticket: add the prize item when it is
+    // missing, then apply the coupon together with the ticket number.
+    const handleWheelSelect = async ({ coupon, ticketNo }) => {
+        setShowWheelTicket(false);
+        const codes = new Set((coupon?.itemCodes || []).map((code) => String(code).trim().toLowerCase()));
+        let rows = cartRows;
+        const inCart = rows.some(
+            (row) => !row.isOfferItem && codes.has(String(row.itemCode ?? row.productCode ?? "").trim().toLowerCase())
+        );
+        if (!inCart && coupon?.items?.[0] && onEnsureWheelItem) {
+            rows = (await onEnsureWheelItem(coupon.items[0])) || rows;
+        }
+        await handleApplyCoupon(coupon.code, { wheelTicketNo: ticketNo, items: buildCouponItems(rows) });
+    };
+
+    const handleApplyCoupon = async (codeOverride, options = {}) => {
+        const wheelTicketNo = options?.wheelTicketNo || null;
         const requestId = ++couponValidationRequestRef.current;
         const trimmedValue = (typeof codeOverride === "string" ? codeOverride : couponInputValue).trim();
         if (typeof codeOverride === "string") setCouponInputValue(trimmedValue);
@@ -412,7 +453,8 @@ export default function PaymentCollectionModal({
                 couponCode: trimmedValue,
                 customerPhone,
                 storeId,
-                items: buildCouponItems(cartRows),
+                items: options?.items || buildCouponItems(cartRows),
+                ...(wheelTicketNo && { wheelTicketNo }),
             });
             if (requestId !== couponValidationRequestRef.current) return;
 
@@ -437,7 +479,7 @@ export default function PaymentCollectionModal({
                 return;
             }
 
-            setCouponValidation(validation);
+            setCouponValidation(wheelTicketNo ? { ...validation, wheelTicketNo } : validation);
             setPaymentRows(
                 createDefaultPaymentRows(
                     Math.max(
@@ -449,7 +491,11 @@ export default function PaymentCollectionModal({
                     )
                 )
             );
-            setCouponMessage(response?.message || "Coupon applied.");
+            setCouponMessage(
+                wheelTicketNo
+                    ? `Wheel coupon applied (ticket ${wheelTicketNo}).`
+                    : response?.message || "Coupon applied."
+            );
             setCouponMessageIsError(false);
         } catch (error) {
             if (requestId !== couponValidationRequestRef.current) return;
@@ -592,10 +638,12 @@ export default function PaymentCollectionModal({
             loyaltyRedeemed: roundToWholeRupee(Number(loyaltyRedeemDiscount || 0)),
             netPayable: roundToWholeRupee(collectionPayable),
             couponCode: couponValidation?.coupon?.code || null,
+            wheelTicketNo: couponValidation?.isValid ? couponValidation?.wheelTicketNo || null : null,
             couponDiscountAmount: roundToWholeRupee(couponDiscountAmount),
             schemeDiscountAmount: roundToDecimals(schemeDiscountAmount),
             billingSchemeId: schemeDiscountAmount > 0 ? schemeBill?.billingSchemeId ?? null : null,
             schemeCartItems: schemeDiscountAmount > 0 ? schemeBill?.cartItems ?? null : null,
+            schemeBreakdown: schemeDiscountAmount > 0 ? schemeBill?.breakdown ?? [] : [],
         };
     };
 
@@ -914,6 +962,7 @@ export default function PaymentCollectionModal({
                                 </KitButton>
                             </div>
                         </div>
+                        {!isWheelApplied && (
                         <div className="relative flex items-center gap-3 rounded-lg border border-dashed border-app-border bg-calendar-bg px-3 py-2">
                             <ShortcutBadge shortcut="o" className="top-0 -right-4!" />
                             <div className="w-28 shrink-0">
@@ -969,6 +1018,7 @@ export default function PaymentCollectionModal({
                                 </KitButton>
                             </div>
                         </div>
+                        )}
                         <WheelCouponPanel
                             customerPhone={customerPhone}
                             storeId={storeId}
@@ -977,6 +1027,8 @@ export default function PaymentCollectionModal({
                             disabled={isAutoCouponApplied}
                             isApplying={isValidateCoupon}
                             onApply={handleApplyCoupon}
+                            onOpenTicket={() => setShowWheelTicket(true)}
+                            appliedTicketNo={couponValidation?.isValid ? couponValidation?.wheelTicketNo : ""}
                         />
                     </div>
                 </div>
@@ -1140,9 +1192,9 @@ export default function PaymentCollectionModal({
                         )}
                     {couponDiscountAmount > 0 && (
                         <div className="flex items-center justify-between gap-2 py-0.5 text-xs leading-4">
-                            <span>Coupon Discount</span>
+                            <span>{isWheelApplied ? "Wheel Discount" : "Coupon Discount"}</span>
                             <div className="flex items-center gap-1">
-                                <Tooltip title="Remove applied coupon">
+                                <Tooltip title={isWheelApplied ? "Remove wheel coupon" : "Remove applied coupon"}>
                                     <IconButton
                                         size="small"
                                         onClick={handleRemoveCoupon}
@@ -1262,8 +1314,21 @@ export default function PaymentCollectionModal({
                 onSelectionChange={setDraftSchemeIds}
                 onApply={handleApplySchemeSelection}
                 items={cartRows}
+                customerPhone={customerPhone}
             />
         </KitShow>
+
+        {showWheelTicket && (
+            <WheelTicketModal
+                open
+                onClose={() => setShowWheelTicket(false)}
+                customerPhone={customerPhone}
+                storeId={storeId}
+                items={couponItems}
+                cartItemCodes={cartRows.map((row) => String(row.itemCode ?? row.productCode ?? "").trim().toLowerCase())}
+                onSelect={handleWheelSelect}
+            />
+        )}
     </>
     );
 }

@@ -873,6 +873,7 @@ app.whenReady().then(async () => {
             .filter((product) => {
               return (
                 product.productName?.toLowerCase().includes(search) ||
+                String(product.itemCode ?? product.productCode ?? "").toLowerCase() === search ||
                 getProductBarcodes(product).some((barcode) => barcode.includes(search))
               );
             })

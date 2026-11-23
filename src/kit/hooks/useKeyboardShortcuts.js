@@ -35,6 +35,7 @@ export default function useKeyboardShortcuts({
     isSavingBillLoading,
     cartRows,
     showPaymentModal,
+    showWheelTicket,
     toggleShortcutModal,
     handleQuantityChange,
     toggleMenuDrawer,
@@ -56,7 +57,7 @@ export default function useKeyboardShortcuts({
                 return;
             }
 
-            if (showPaymentModal) {
+            if (showPaymentModal || showWheelTicket) {
                 return;
             }
 
@@ -358,6 +359,7 @@ export default function useKeyboardShortcuts({
         showDeleteDialog,
         isSavingBillLoading,
         showPaymentModal,
+        showWheelTicket,
         handleExportCsv,
         handleExportXlsx,
         toggleShortcutModal,
