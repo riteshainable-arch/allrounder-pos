@@ -211,7 +211,7 @@ const InvoiceModal = ({ isOpen, onClose, selectedInvoiceList }) => {
                                 <div>Delivery Charge - {priceFormat(invoiceBill?.deliveryCharge)}</div>
                                 <div>Discount - {priceFormat(invoiceBill?.totalDiscount)}</div>
                                 <b>Total Payable amount - {priceFormat(invoiceBill?.payAmount)}</b>
-                                <div>Total saving - {priceFormat(invoiceBill?.savingAmount)}</div>
+                                <div>You save - {priceFormat(invoiceBill?.savingAmount)}</div>
                                 {normalizeBillPayments(invoiceBill).length > 0 && (
                                     <div className="mt-2 border-t pt-2">
                                         <b>Payment Details</b>

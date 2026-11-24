@@ -12,10 +12,15 @@ const TICKET_PREFIX = "TKT";
 
 // The "TKT" prefix is shown in the field already, so the cashier only types the rest (e.g. 1021).
 // A pasted full ticket number ("TKT1021") is accepted too - the prefix is stripped.
-const cleanTicketSuffix = (value) => {
-    const upper = String(value ?? "").toUpperCase().replace(/\s+/g, "");
-    return upper.startsWith(TICKET_PREFIX) ? upper.slice(TICKET_PREFIX.length) : upper;
-};
+const cleanTicketSuffix = (value) =>
+    // Drops a typed / pasted "TKT" or "TKT-" (and a half-deleted "TK-" / "T-" left over from backspacing the prefix).
+    String(value ?? "")
+        .toUpperCase()
+        .replace(/\s+/g, "")
+        .replace(/^(TKT|TK|T)?-*/, "");
+
+// Real ticket numbers are TKT1021 (numeric bill no) or TKT-<billNo> (other bill formats).
+const buildTicketNo = (suffix) => (suffix ? `${TICKET_PREFIX}${/^\d/.test(suffix) ? "" : "-"}${suffix}` : "");
 
 const errorText = (error, fallback) =>
     Array.isArray(error)
@@ -73,7 +78,7 @@ export default function WheelTicketModal({ open, onClose, customerPhone, storeId
     const verify = async () => {
         const cleanPhone = phone.trim();
         const suffix = cleanTicketSuffix(ticketNo);
-        const cleanTicket = suffix ? `${TICKET_PREFIX}${suffix}` : "";
+        const cleanTicket = buildTicketNo(suffix);
         setResult(null);
         setSelectedId(null);
         if (!PHONE_RE.test(cleanPhone)) return setError("Enter the customer's 10-digit mobile number.");
@@ -164,9 +169,9 @@ export default function WheelTicketModal({ open, onClose, customerPhone, storeId
                             fullWidth
                             size="small"
                             label="Ticket number"
-                            placeholder="e.g. 1021"
-                            startIcon={<span className="text-sm font-semibold text-third-700">{TICKET_PREFIX}</span>}
-                            value={ticketNo}
+                            placeholder="TKT-1021"
+                            // "TKT-" is part of the value itself, so it always shows and the cashier only types the number.
+                            value={`${TICKET_PREFIX}-${ticketNo}`}
                             onChange={(e) => {
                                 setTicketNo(cleanTicketSuffix(e.target.value));
                                 setResult(null);

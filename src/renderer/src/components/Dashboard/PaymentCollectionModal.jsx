@@ -128,7 +128,7 @@ export default function PaymentCollectionModal({
     const [draftSchemeIds, setDraftSchemeIds] = useState([]);
     const [totalSchemeDiscount, setTotalSchemeDiscount] = useState(null);
     // What the server evaluated for the chosen offer. It is sent with the bill so the discount is
-    // recorded: item offers as tagged lines at the offer price, bill offers as `billingSchemeId`.
+    // recorded: item offers as tagged lines at the offer price, bill offers as `billingSchemeIds`.
     const [schemeBill, setSchemeBill] = useState(null);
     const [schemeEvaluationError, setSchemeEvaluationError] = useState("");
 
@@ -193,7 +193,7 @@ export default function PaymentCollectionModal({
     };
 
     const handleApplySchemeSelection = async (selectedIds, selectedSchemes = []) => {
-        // Several offers can apply on one bill (item offers each; only one bill-discount offer).
+        // Several offers can apply on one bill: item offers, and bill discounts stacked one after the other.
         const nextSchemeIds = [...new Set(selectedIds.map(Number))];
         setSchemeIds(nextSchemeIds);
         setTotalSchemeDiscount(null);
@@ -252,7 +252,10 @@ export default function PaymentCollectionModal({
             setSchemeBill(
                 schemeDiscount > 0
                     ? {
-                          billingSchemeId: evaluation.billDiscount?.schemeId ?? null,
+                          // Every stacked bill discount, in the order they were taken off.
+                          billingSchemeIds: (Array.isArray(evaluation.billDiscounts) ? evaluation.billDiscounts : [])
+                              .map((bill) => Number(bill.schemeId))
+                              .filter(Boolean),
                           cartItems:
                               Number(evaluation.itemSchemeDiscount || 0) > 0 &&
                               Array.isArray(evaluation.cartItems)
@@ -667,7 +670,7 @@ export default function PaymentCollectionModal({
             wheelTicketNo: couponValidation?.isValid ? couponValidation?.wheelTicketNo || null : null,
             couponDiscountAmount: roundToWholeRupee(couponDiscountAmount),
             schemeDiscountAmount: roundToDecimals(schemeDiscountAmount),
-            billingSchemeId: schemeDiscountAmount > 0 ? schemeBill?.billingSchemeId ?? null : null,
+            billingSchemeIds: schemeDiscountAmount > 0 ? schemeBill?.billingSchemeIds ?? [] : [],
             schemeCartItems: schemeDiscountAmount > 0 ? schemeBill?.cartItems ?? null : null,
             schemeBreakdown: schemeDiscountAmount > 0 ? schemeBill?.breakdown ?? [] : [],
         };

@@ -1770,7 +1770,7 @@ export default function Dashboard() {
                 // Schemes that gave a discount (item price + bill discount): printed under the totals.
                 billingSchemes: Array.isArray(paymentData.schemeBreakdown) ? paymentData.schemeBreakdown : [],
                 // Bill-discount offer: the server re-checks it and records the discount against the bill.
-                ...(paymentData.billingSchemeId && { billingSchemeId: paymentData.billingSchemeId }),
+                ...(paymentData.billingSchemeIds?.length > 0 && { billingSchemeIds: paymentData.billingSchemeIds }),
                 loyaltyRedeem: redeemPoints,
                 loyaltyRedeemDiscount: roundToDecimals(redeemDiscount),
                 loyaltyRedeemed: roundToDecimals(redeemDiscount),

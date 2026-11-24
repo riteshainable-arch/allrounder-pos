@@ -29,6 +29,10 @@ const getItemTotalAmount = (item) => {
 const getCouponDiscountAmount = (bill) =>
     Number(bill?.couponDiscount ?? bill?.couponDiscountAmount ?? bill?.coupons?.[0]?.discountAmount ?? 0) || 0;
 
+// Pause between the bill job and the wheel-ticket job so the printer cuts in between. Raise it if a slow
+// printer still joins the two slips.
+const TICKET_PRINT_GAP_MS = 4000;
+
 const KOTPrintModal = ({ isOpen, onClose, selectedItems: selectedItemsProp, autoPrint = false }) => {
     const isOnline = useOnlineStatus();
     const { invoiceBillDetail, isInvoiceBillDetailLoading } = useInvoiceBillDetail(
@@ -145,8 +149,9 @@ const KOTPrintModal = ({ isOpen, onClose, selectedItems: selectedItemsProp, auto
         await printToDefaultPrinter();
         if (!hasWheelTicket) return;
 
-        // Let the printer finish / cut the bill slip before the ticket job is sent.
-        await new Promise((resolve) => window.setTimeout(resolve, 700));
+        // Let the printer finish printing AND cut the bill slip before the ticket job is sent. Sent back to back,
+        // thermal drivers merge the two jobs onto one uncut strip (the cut only happens once the queue is idle).
+        await new Promise((resolve) => window.setTimeout(resolve, TICKET_PRINT_GAP_MS));
         document.body.dataset.printTarget = "ticket";
         try {
             await new Promise((resolve) => window.requestAnimationFrame(() => window.requestAnimationFrame(resolve)));
@@ -575,20 +580,12 @@ const KOTPrintModal = ({ isOpen, onClose, selectedItems: selectedItemsProp, auto
                                     <div className="mx-2 rounded border-2 border-black py-1 text-center text-base font-extrabold">
                                         YOU SAVE: {priceFormat(selectedItems?.savingAmount)}
                                     </div>
-                                    {selectedItems?.customerSaving && (
-                                        <div className="mx-2 mt-1 rounded border border-black px-2 py-1 text-xs">
-                                            <div className="flex justify-between">
-                                                <span>Previous Saving</span>
-                                                <span>{priceFormat(selectedItems.customerSaving.previousSaving)}</span>
-                                            </div>
-                                            <div className="flex justify-between">
-                                                <span>Today Saving</span>
-                                                <span>{priceFormat(selectedItems.customerSaving.todaySaving)}</span>
-                                            </div>
-                                            <div className="mt-0.5 flex justify-between border-t border-dashed border-black pt-0.5 text-sm font-extrabold">
-                                                <span>TOTAL SAVING</span>
-                                                <span>{priceFormat(selectedItems.customerSaving.totalSaving)}</span>
-                                            </div>
+                                    {/* YOU SAVE = this bill (MRP total - amount paid). TOTAL SAVING = overall, all of the
+                                        customer's bills including this one. Shown only once there is an earlier saving. */}
+                                    {Number(selectedItems?.customerSaving?.previousSaving) > 0 && (
+                                        <div className="mx-2 mt-1 flex justify-between rounded border border-black px-2 py-1 text-sm font-extrabold">
+                                            <span>TOTAL SAVING</span>
+                                            <span>{priceFormat(selectedItems.customerSaving.totalSaving)}</span>
                                         </div>
                                     )}
                                     {/* <div className="flex justify-between">
@@ -736,7 +733,7 @@ const KOTPrintModal = ({ isOpen, onClose, selectedItems: selectedItemsProp, auto
                                     // Printed on its own, right after the bill (separate print job = separate slip).
                                     <div
                                         id="wheel-ticket-section"
-                                        className="mx-auto flex w-fit flex-col items-center gap-1 border-t border-dashed border-third-500 pt-2 text-center text-[13px] text-third-800"
+                                        className="mx-auto flex w-fit flex-col items-center gap-1 border-t border-dashed border-third-500 pb-8 pt-2 text-center text-[13px] text-third-800"
                                         style={{ page: "kot-thermal" }}
                                     >
                                         <img src={Logo} alt="logo" className="w-24" />
