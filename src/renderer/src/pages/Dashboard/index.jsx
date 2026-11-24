@@ -38,7 +38,8 @@ import useKeyboardShortcuts from "../../../../kit/hooks/useKeyboardShortcuts";
 import CashierFunctionsInfoModal from "../../components/Dashboard/CashierFunctionsInfoModal";
 import KitLineLoader from "../../../../kit/components/KitLineLoader";
 import useUser from "../../../../kit/hooks/useUser";
-import PaymentCollectionModal from "../../components/Dashboard/PaymentCollectionModal";
+import PaymentCollectionModal, { buildEvaluateCouponItems } from "../../components/Dashboard/PaymentCollectionModal";
+import { useGlobalCouponEvaluate } from "../../../../kit/hooks/data/globalCoupon";
 import SaleReturnModal from "../../components/SaleReturn/SaleReturnModal";
 import StartDayScreen from "../../components/Dashboard/StartDayScreen";
 import { useDaySessionContext } from "../../../../kit/hooks/DaySessionProvider";
@@ -477,7 +478,7 @@ export default function Dashboard() {
     };
 
     // Selecting an ITEM_PRICE offer in the payment screen adds the scheme item to the bill by itself
-    // (the item does not have to be scanned first). Rows added this way carry `schemeAutoAddedFor`
+    // (the item does not have to be scanned first). Rows added this way carry `schemeAdds`
     // so they can be swapped / removed when the cashier changes or clears the offer.
     // Returns the full cart that the scheme should be evaluated against.
     // `selections` = [{ schemeId, autoAddItems }] for every selected offer (several offers can apply to one bill);
@@ -597,6 +598,74 @@ export default function Dashboard() {
         if (!cartRows.length && appliedSchemes.length) setAppliedSchemes([]);
     }, [cartRows.length, appliedSchemes.length]);
 
+    // An item offer stays applied only while its item is on the bill: take the item off the list and the offer goes
+    // with it, so Collect Payment does not bring it back. Bill discounts have no row and stay.
+    useEffect(() => {
+        if (!appliedSchemes.length) return;
+        const onBill = new Set();
+        cartRows.forEach((row) => Object.keys(row.schemeAdds || {}).forEach((id) => onBill.add(String(id))));
+        const stillApplied = appliedSchemes.filter(
+            (scheme) => scheme?.schemeType === "BILL_DISCOUNT" || onBill.has(String(scheme.id))
+        );
+        if (stillApplied.length !== appliedSchemes.length) setAppliedSchemes(stillApplied);
+    }, [cartRows, appliedSchemes]);
+
+    // What the applied offers give on the current bill, so the billing screen shows the offer price per row and the
+    // net payable after the offers (Collect Payment evaluates the same thing again before the bill is saved).
+    const { globalCouponEvaluate } = useGlobalCouponEvaluate();
+    const [schemePreviewState, setSchemePreviewState] = useState(null);
+    const appliedSchemeIdsKey = appliedSchemes.map((scheme) => Number(scheme.id)).join(",");
+    const cartSignature = JSON.stringify(
+        cartRows.map((row) => [row.id, row.quantity, row.price, row.isOfferItem ? 1 : 0])
+    );
+    useEffect(() => {
+        if (!appliedSchemeIdsKey || !cartRows.length) return undefined;
+        let isActive = true;
+        const timer = setTimeout(async () => {
+            try {
+                const response = await globalCouponEvaluate({
+                    storeId: POS_STORE_ID,
+                    cartItems: buildEvaluateCouponItems(cartRows),
+                    ...(phone && { customerPhone: phone }),
+                    schemeIds: appliedSchemeIdsKey.split(",").map(Number),
+                    date: format(new Date(), "yyyy-MM-dd"),
+                });
+                if (!isActive) return;
+                const data = response?.data ?? {};
+                const byCode = {};
+                (data.cartItems || [])
+                    .filter((line) => line.isBillingSchemeItem)
+                    .forEach((line) => {
+                        const code = String(line.itemCode ?? line.productCode ?? "").trim().toLowerCase();
+                        const qty = Number(line.quantity ?? line.qty) || 0;
+                        const discount = Number(line.offerDiscountAmount) || 0;
+                        const entry = byCode[code] || { qty: 0, discount: 0, original: 0 };
+                        entry.qty += qty;
+                        entry.discount += discount;
+                        entry.original = Number(line.originalSalePrice) || entry.original;
+                        byCode[code] = entry;
+                    });
+                Object.values(byCode).forEach((entry) => {
+                    entry.unitPrice = entry.qty > 0 ? roundToDecimals(entry.original - entry.discount / entry.qty) : entry.original;
+                });
+                setSchemePreviewState({ discount: Number(data.totalSchemeDiscount) || 0, byCode });
+            } catch (error) {
+                if (isActive) setSchemePreviewState(null);
+            }
+        }, 300);
+        return () => {
+            isActive = false;
+            clearTimeout(timer);
+        };
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [appliedSchemeIdsKey, cartSignature, phone]);
+    const schemePreview = appliedSchemeIdsKey && cartRows.length ? schemePreviewState : null;
+    const schemeDiscountOnScreen = Number(schemePreview?.discount || 0);
+    const schemeInfoOf = (row) =>
+        row.isOfferItem
+            ? null
+            : schemePreview?.byCode?.[String(row.itemCode ?? row.productCode ?? "").trim().toLowerCase()] || null;
+
     // item code -> names of the applied item offers, to tag the matching rows in the bill list.
     const schemeNamesByItemCode = useMemo(() => {
         const map = new Map();
@@ -612,29 +681,30 @@ export default function Dashboard() {
         return map;
     }, [appliedSchemes]);
 
+    // A row an offer put on the bill carries `schemeAdds` = { [schemeId]: quantity that offer added } (one row can serve
+    // several offers) and `schemeBaseQty` = what the cashier had scanned before (0 = the offer created the row).
+    // Taking the offers back restores the scanned quantity, or removes the row the offer created.
+    const clearSchemeRows = (rows, keepStale = false) =>
+        rows.flatMap((row) => {
+            if (!row.schemeAdds) return [row];
+            const { schemeAdds: _adds, schemeBaseQty: _base, ...rest } = row;
+            if (Number(row.schemeBaseQty) > 0) return [{ ...rest, quantity: row.schemeBaseQty }];
+            // Stale rows keep their place in the list while the offers are put back; the ones nobody claims are dropped.
+            return keepStale ? [{ ...rest, schemeStale: true }] : [];
+        });
+
     const handleSyncSchemeItems = async (selections = []) => {
         const wanted = (Array.isArray(selections) ? selections : []).filter((selection) => selection?.schemeId);
-        const keepSchemeIds = new Set(wanted.map((selection) => String(selection.schemeId)));
-        // Rows these offers (or earlier ones) added: a row the cashier had already scanned only gets its
-        // quantity put back (`schemeBaseQty`), a row created by an offer is removed.
-        const dropSchemeRows = (rows) =>
-            rows.flatMap((row) => {
-                if (!row.schemeAutoAddedFor) return [row];
-                if (keepSchemeIds.has(String(row.schemeAutoAddedFor))) return [row];
-                if (Number(row.schemeBaseQty) > 0) {
-                    const { schemeAutoAddedFor: _tag, schemeBaseQty: _base, ...rest } = row;
-                    return [{ ...rest, quantity: row.schemeBaseQty }];
-                }
-                return [];
-            });
 
         if (!wanted.length) {
             // Functional update so a late call (e.g. modal closing after the bill was saved) can't bring back a cleared cart.
-            setCartRows((prev) => (prev.some((row) => row.schemeAutoAddedFor) ? dropSchemeRows(prev) : prev));
-            return dropSchemeRows(cartRows);
+            setCartRows((prev) => (prev.some((row) => row.schemeAdds) ? clearSchemeRows(prev) : prev));
+            return clearSchemeRows(cartRows);
         }
 
-        let nextRows = dropSchemeRows(cartRows);
+        // Start from the bill without what the offers added before, then put every picked offer item (with the
+        // quantity picked in the offers popup) back.
+        let nextRows = clearSchemeRows(cartRows, true);
 
         for (const { schemeId, autoAddItems = [] } of wanted) {
             for (const schemeItem of autoAddItems) {
@@ -643,17 +713,24 @@ export default function Dashboard() {
                 const matches = (product) =>
                     (code && String(product.itemCode ?? product.productCode ?? "").trim().toLowerCase() === code) ||
                     (barcode && getProductBarcodes(product).includes(barcode));
+                const qty = Math.max(1, Number(schemeItem.qty) || 1);
 
                 const existingRow = nextRows.find((row) => !row.isOfferItem && matches(row));
                 if (existingRow) {
-                    // Already added by an offer (this one or another selected one) - nothing more to add.
-                    if (existingRow.schemeAutoAddedFor) continue;
-                    // Scanned by the cashier: the offer needs its own extra quantity on top of it.
-                    const baseQty = Number(existingRow.quantity) || 0;
-                    const addQty = Math.max(1, Number(schemeItem.qty) || 1);
+                    const { schemeStale: _stale, ...cleanRow } = existingRow;
+                    const isStale = Boolean(existingRow.schemeStale);
+                    // Scanned by the cashier: the offer needs its own quantity on top of it. A row an offer created
+                    // (or another offer's row) just gets this offer's quantity added.
+                    const currentQty = isStale ? 0 : Number(existingRow.quantity) || 0;
+                    const baseQty = isStale ? 0 : existingRow.schemeAdds ? Number(existingRow.schemeBaseQty) || 0 : currentQty;
                     nextRows = nextRows.map((row) =>
                         row === existingRow
-                            ? { ...row, quantity: baseQty + addQty, schemeAutoAddedFor: schemeId, schemeBaseQty: baseQty }
+                            ? {
+                                  ...cleanRow,
+                                  quantity: currentQty + qty,
+                                  schemeAdds: { ...(isStale ? {} : existingRow.schemeAdds || {}), [schemeId]: qty },
+                                  schemeBaseQty: baseQty,
+                              }
                             : row
                     );
                     continue;
@@ -694,15 +771,15 @@ export default function Dashboard() {
                     }
                     : product;
 
-                const qty = Math.max(1, Number(schemeItem.qty) || 1);
                 nextRows = updateNormalRow(nextRows, baseProduct, qty).map((row) =>
                     String(row.id) === String(baseProduct.id) && !row.isOfferItem
-                        ? { ...row, schemeAutoAddedFor: schemeId, schemeBaseQty: 0 }
+                        ? { ...row, schemeAdds: { [schemeId]: qty }, schemeBaseQty: 0 }
                         : row
                 );
             }
         }
 
+        nextRows = nextRows.filter((row) => !row.schemeStale);
         setCartRows(nextRows);
         return nextRows;
     };
@@ -1476,6 +1553,7 @@ export default function Dashboard() {
             minWidth: 500,
             flex: 1,
             renderCell: (params) =>
+                <div className="flex min-w-0 flex-col justify-center leading-tight">
                 <div className="flex items-center gap-2">
                     <EllipsisText className="text-[15px]! font-semibold! text-app-text!" text={params.row.productName || "-"} />
                     {params.row.comboStatus === 'WITH_COMBO' && (
@@ -1510,23 +1588,22 @@ export default function Dashboard() {
                             className="text-xs! p-0!"
                         />
                     )}
-                    {!params.row.isOfferItem &&
-                        (() => {
-                            const names = schemeNamesByItemCode.get(
-                                String(params.row.itemCode ?? params.row.productCode ?? "").trim().toLowerCase()
-                            );
-                            return names?.length ? (
-                                <Tooltip title={`Scheme applied: ${names.join(", ")}`}>
-                                    <Chip
-                                        label={`Scheme: ${names[0]}${names.length > 1 ? ` +${names.length - 1}` : ""}`}
-                                        color="warning"
-                                        size="small"
-                                        className="max-w-60 text-xs! p-0!"
-                                    />
-                                </Tooltip>
-                            ) : null;
-                        })()}
-                    {/* {!params.row.isOfferItem && excludedItemCodes.has(params.row.itemCode) && (
+                </div>
+                {!params.row.isOfferItem &&
+                    (() => {
+                        const names = schemeNamesByItemCode.get(
+                            String(params.row.itemCode ?? params.row.productCode ?? "").trim().toLowerCase()
+                        );
+                        if (!names?.length) return null;
+                        const info = schemeInfoOf(params.row);
+                        return (
+                            <span className="truncate text-xs font-semibold text-amber-700" title={`Scheme applied: ${names.join(", ")}`}>
+                                Scheme: {names.join(", ")}
+                                {info ? ` - ${info.qty} qty at ${priceFormat(info.unitPrice)}, saves ${priceFormat(info.discount)}` : ""}
+                            </span>
+                        );
+                    })()}
+                {/* {!params.row.isOfferItem && excludedItemCodes.has(params.row.itemCode) && (
                         <LoyaltyExcludedBadge />
                     )} */}
                 </div>
@@ -1551,6 +1628,7 @@ export default function Dashboard() {
                     size="small"
                     disabled={
                         params.row.isOfferItem ||
+                        Boolean(params.row.schemeAdds) ||
                         (
                             params.row.comboStatus === "WITHOUT_COMBO" &&
                             params.row.comboMode === "WITHOUT" &&
@@ -1575,6 +1653,7 @@ export default function Dashboard() {
                                 const row = cartRows[i];
                                 const locked =
                                     row.isOfferItem ||
+                                    Boolean(row.schemeAdds) ||
                                     (row.comboStatus === "WITHOUT_COMBO" &&
                                         row.comboMode === "WITHOUT" &&
                                         cartRows.some((x) => x.id === `${row.id}-combo`));
@@ -1612,11 +1691,25 @@ export default function Dashboard() {
             headerName: "Sale Price",
             minWidth: 150,
             flex: 1,
-            renderCell: (params) => (
-                <Typography variant="body1" className="text-[15px]! font-semibold! text-app-text!">
-                    {priceFormat(params.row.price)}
-                </Typography>
-            ),
+            renderCell: (params) => {
+                const info = schemeInfoOf(params.row);
+                if (!info) {
+                    return (
+                        <Typography variant="body1" className="text-[15px]! font-semibold! text-app-text!">
+                            {priceFormat(params.row.price)}
+                        </Typography>
+                    );
+                }
+                return (
+                    <div className="flex flex-col justify-center leading-tight">
+                        <span className="text-xs text-gray-400 line-through">{priceFormat(params.row.price)}</span>
+                        <span className="text-[15px] font-semibold text-green-700">
+                            {priceFormat(info.unitPrice)}
+                            {info.qty < Number(params.row.quantity) ? ` x${info.qty}` : ""}
+                        </span>
+                    </div>
+                );
+            },
         },
         {
             field: "total",
@@ -1624,13 +1717,23 @@ export default function Dashboard() {
             minWidth: 150,
             flex: 1,
             renderCell: (params) => {
+                const rowTotal = params.row.isOfferItem
+                    ? 0
+                    : (params.row.totalPrice ?? (params.row.price * params.row.quantity));
+                const info = schemeInfoOf(params.row);
+                if (info && info.discount > 0) {
+                    return (
+                        <div className="flex flex-col justify-center leading-tight">
+                            <span className="text-xs text-gray-400 line-through">{priceFormat(rowTotal)}</span>
+                            <span className="text-[15px] font-semibold text-green-700">
+                                {priceFormat(Math.max(0, rowTotal - info.discount))}
+                            </span>
+                        </div>
+                    );
+                }
                 return (
                     <Typography variant="body1" className="text-[15px]! font-semibold! text-app-text!">
-                        {priceFormat(
-                            params.row.isOfferItem
-                                ? 0
-                                : (params.row.totalPrice ?? (params.row.price * params.row.quantity))
-                        )}
+                        {priceFormat(rowTotal)}
                     </Typography>
                 );
             },
@@ -2996,10 +3099,18 @@ export default function Dashboard() {
                                             <div className="text-sm font-semibold text-third-500">Pay Amount</div>
                                             <div className="text-base text-third font-semibold">{priceFormat(totalPay)}</div>
                                         </div>
+                                        {schemeDiscountOnScreen > 0 && (
+                                            <div className="flex flex-col items-center gap-0.5">
+                                                <div className="text-sm font-semibold text-third-500">Scheme Discount</div>
+                                                <div className="text-base font-semibold text-green-700">
+                                                    - {priceFormat(schemeDiscountOnScreen)}
+                                                </div>
+                                            </div>
+                                        )}
                                         <div className="flex flex-col items-center gap-0.5 rounded-lg bg-blue-50 py-2">
                                             <div className="text-sm font-semibold text-third-500">Net Payable</div>
                                             <div className="text-xl text-primary font-bold">
-                                                {priceFinalAmountFormat(netPayable)}
+                                                {priceFinalAmountFormat(Math.max(0, Number(netPayable || 0) - schemeDiscountOnScreen))}
                                             </div>
                                         </div>
                                         <div className="flex flex-col items-center gap-0.5">

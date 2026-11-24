@@ -14,6 +14,17 @@ const buildCouponItems = (cartRows) =>
         salePrice: roundToDecimals(item.isOfferItem ? 0 : (item.latestSalePrice ?? item.salePrice ?? item.price ?? 0)),
     }));
 
+const money = (value) =>
+    `₹${Number(value || 0).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+
+const rewardText = (scheme) => {
+    const value = Number(scheme.discountValue) || 0;
+    if (scheme.discountType === "PERCENTAGE") return `${value}% off`;
+    if (scheme.discountType === "FLAT") return `${money(value)} off`;
+    if (scheme.discountType === "PRICE") return `At ${money(value)}`;
+    return "";
+};
+
 export default function SchemeModal({
     open,
     onClose,
@@ -21,6 +32,7 @@ export default function SchemeModal({
     items,
     customerPhone = "",
     selectedSchemeIds = [],
+    appliedSchemes = [],
     onSelectionChange,
     onApply,
 }) {
@@ -30,6 +42,11 @@ export default function SchemeModal({
     // Bill amount, and the part of it the schemes' min-bill is checked on (without the items a scheme gives).
     const [billSummary, setBillSummary] = useState(null);
     const [refreshKey, setRefreshKey] = useState(0);
+    // The list has been fetched at least once. This popup is mounted fresh every time it opens, so until then the
+    // list is empty and the ticked offers must not be cleared (they are checked against the list once it is here).
+    const [isLoaded, setIsLoaded] = useState(false);
+    // Item / quantity edits made in this popup: { [schemeId]: { [itemCode]: qty } }.
+    const [pickEdits, setPickEdits] = useState({});
     const checkboxRefs = useRef([]);
     const schemesGridRef = useRef(null);
 
@@ -52,6 +69,7 @@ export default function SchemeModal({
                     billAmount: Number(response?.data?.billAmount || 0),
                     eligibleAmount: Number(response?.data?.eligibleAmount ?? response?.data?.billAmount ?? 0),
                 });
+                setIsLoaded(true);
             } catch (error) {
                 if (!isActive) return;
                 setAvailableSchemeList([]);
@@ -66,7 +84,7 @@ export default function SchemeModal({
     }, [open, storeId, items, refreshKey, customerPhone]);
 
     useEffect(() => {
-        if (!open || isAvailableScheme) return;
+        if (!open || isAvailableScheme || !isLoaded) return;
 
         // Item offers are always selectable: when the item is not on the bill yet, applying the offer adds it.
         const selectableSchemeIds = new Set(
@@ -77,22 +95,84 @@ export default function SchemeModal({
         if (validSelection.length !== selectedSchemeIds.length) {
             onSelectionChange(validSelection);
         }
-    }, [availableSchemeList, isAvailableScheme, onSelectionChange, open, selectedSchemeIds]);
+    }, [availableSchemeList, isAvailableScheme, isLoaded, onSelectionChange, open, selectedSchemeIds]);
 
-    // The eligible amount is only a guide for the cashier (what is ticked does not change what a scheme gives):
-    // every ticked scheme takes its min-bill amount off the eligible amount, and only the schemes whose min-bill
-    // still fits in what is left can be ticked. Item offers and bill discounts each count on their own amount.
+    // The eligible amount is only a guide for the cashier. An item offer takes its min-bill amount off it for every
+    // quantity slab of its item the cashier picks (min bill 2000, 2 quantity = 4000), and only the offers whose
+    // min-bill still fits in what is left can be ticked. Item offers and bill discounts each count on their own amount.
     const minBillOf = (scheme) => Number(scheme.minBillAmount) || 0;
     const isBillScheme = (scheme) => scheme.schemeType === "BILL_DISCOUNT";
+    const itemKey = (item) => String(item.itemCode ?? item.barcode ?? "").trim().toLowerCase();
+    const perSlabQty = (item) => Math.max(1, Number(item.qty) || 1);
     const tickedSchemes = availableSchemeList.filter((scheme) => selectedSchemeIds.includes(Number(scheme.id)));
+
+    // Quantity picked per item: what was edited here, else what is applied on the bill, else 1 unit of the item the
+    // offer would add by default (the one already on the bill, or the first). The cashier raises it with +.
+    const picksOf = (scheme) => {
+        const id = Number(scheme.id);
+        if (pickEdits[id]) return pickEdits[id];
+        const applied = appliedSchemes.find((entry) => Number(entry.id) === id);
+        if (applied?.autoAddItems?.length) {
+            return applied.autoAddItems.reduce((picks, item) => ({ ...picks, [itemKey(item)]: Number(item.qty) || 1 }), {});
+        }
+        const items = scheme.items || [];
+        const defaultCode = String(scheme.autoAddItems?.[0]?.itemCode ?? "").trim().toLowerCase();
+        const target = items.find((item) => itemKey(item) === defaultCode) || items[0];
+        return target ? { [itemKey(target)]: 1 } : {};
+    };
+    const qtyOf = (scheme, item) => Number(picksOf(scheme)[itemKey(item)]) || 0;
+    const totalQtyOf = (scheme) => (scheme.items || []).reduce((sum, item) => sum + qtyOf(scheme, item), 0);
+    // A slab (one min-bill block) is used when any item is taken: 3 of an item that gives 2 per slab = 2 slabs.
+    const slabsUsedBy = (scheme) =>
+        Math.max(
+            1,
+            (scheme.items || []).reduce((max, item) => Math.max(max, Math.ceil(qtyOf(scheme, item) / perSlabQty(item))), 0)
+        );
+    const takenBy = (scheme) => (isBillScheme(scheme) ? minBillOf(scheme) : slabsUsedBy(scheme) * minBillOf(scheme));
     const poolStart = (scheme) => (isBillScheme(scheme) ? billSummary?.billAmount : billSummary?.eligibleAmount) ?? 0;
+    // What is left for a scheme: the pool without what the other ticked offers take.
     const poolLeft = (scheme) => {
         const taken = tickedSchemes
-            .filter((ticked) => isBillScheme(ticked) === isBillScheme(scheme))
-            .reduce((sum, ticked) => sum + minBillOf(ticked), 0);
+            .filter((ticked) => Number(ticked.id) !== Number(scheme.id) && isBillScheme(ticked) === isBillScheme(scheme))
+            .reduce((sum, ticked) => sum + takenBy(ticked), 0);
         return Math.max(0, roundToDecimals(poolStart(scheme) - taken));
     };
     const canTick = (scheme) => minBillOf(scheme) <= poolLeft(scheme) + 0.0001;
+    const itemTaken = tickedSchemes.filter((t) => !isBillScheme(t)).reduce((sum, t) => sum + takenBy(t), 0);
+
+    const slabsAvailable = (scheme) =>
+        minBillOf(scheme) > 0 ? Math.max(0, Math.floor((poolLeft(scheme) + 0.0001) / minBillOf(scheme))) : 1;
+    // Most of one item that can be picked: what the eligible amount lets through, within the customer limit.
+    const maxQtyFor = (scheme, item) => {
+        const byAmount = slabsAvailable(scheme) * perSlabQty(item);
+        const hasLimit = scheme.maxQtyPerCustomer != null && scheme.customerRemainingQty != null;
+        if (!hasLimit) return byAmount;
+        const limit = Number(scheme.customerRemainingQty) + Number(scheme.appliedQty || 0);
+        return Math.max(0, Math.min(byAmount, limit - (totalQtyOf(scheme) - qtyOf(scheme, item))));
+    };
+    const setPick = (scheme, item, nextQty) => {
+        const next = Math.max(0, Math.min(Math.floor(nextQty), maxQtyFor(scheme, item)));
+        // At least one item stays picked: an offer with nothing on the bill would give nothing.
+        if (next === 0 && totalQtyOf(scheme) - qtyOf(scheme, item) <= 0) return;
+        setPickEdits((prev) => ({
+            ...prev,
+            [Number(scheme.id)]: { ...picksOf(scheme), [itemKey(item)]: next },
+        }));
+    };
+    // What goes to the bill for an item offer: the items picked here, with their quantity.
+    const pickedItemsOf = (scheme) =>
+        (scheme.items || [])
+            .filter((item) => qtyOf(scheme, item) > 0)
+            .map((item) => ({
+                itemCode: item.itemCode,
+                itemName: item.itemName,
+                barcode: item.barcode,
+                selectedPriceLayerIds:
+                    item.selectedPriceLayerIds ??
+                    scheme.autoAddItems?.find((entry) => itemKey(entry) === itemKey(item))?.selectedPriceLayerIds ??
+                    null,
+                qty: qtyOf(scheme, item),
+            }));
 
     const toggleScheme = (id) => {
         if (selectedSchemeIds.includes(id)) {
@@ -105,10 +185,13 @@ export default function SchemeModal({
     const applySelectedSchemes = useCallback(() => {
         onApply(
             selectedSchemeIds,
-            availableSchemeList.filter((scheme) => selectedSchemeIds.includes(Number(scheme.id)))
+            availableSchemeList
+                .filter((scheme) => selectedSchemeIds.includes(Number(scheme.id)))
+                .map((scheme) => (isBillScheme(scheme) ? scheme : { ...scheme, autoAddItems: pickedItemsOf(scheme) }))
         );
         onClose();
-    }, [availableSchemeList, onApply, onClose, selectedSchemeIds]);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [availableSchemeList, onApply, onClose, selectedSchemeIds, pickEdits, appliedSchemes]);
 
     const firstSelectableSchemeIndex = availableSchemeList.length > 0 ? 0 : -1;
 
@@ -208,9 +291,9 @@ export default function SchemeModal({
             titleClass="p-3! border-b"
         >
             <div className="max-h-[60vh] overflow-y-auto p-4">
-                {isAvailableScheme && availableSchemeList.length === 0 ? (
+                {(!isLoaded && !AvailableSchemeError) || (isAvailableScheme && availableSchemeList.length === 0) ? (
                     <div className="py-8 text-center text-sm text-third-500">Loading active schemes...</div>
-                ) : AvailableSchemeError ? (
+                ) : AvailableSchemeError && !isLoaded ? (
                     <div className="py-8 text-center text-sm text-red-600" role="alert">
                         {AvailableSchemeError?.[0]?.detail ??
                             AvailableSchemeError?.message ??
@@ -223,142 +306,167 @@ export default function SchemeModal({
                 ) : (
                     <>
                     {billSummary && (
-                        <div className="mb-3 flex flex-wrap items-center gap-x-4 gap-y-1 rounded-lg border border-app-border bg-app-paper px-3 py-2 text-xs text-third-700">
-                            <span>
-                                Bill: <b>₹{billSummary.billAmount.toFixed(2)}</b>
-                            </span>
-                            <span>
-                                Eligible amount: <b>₹{billSummary.eligibleAmount.toFixed(2)}</b>
-                            </span>
-                            <span>
-                                Picked offers take: <b className="text-green-700">₹{tickedSchemes.filter((t) => !isBillScheme(t)).reduce((sum, t) => sum + minBillOf(t), 0).toFixed(2)}</b>
-                            </span>
-                            <span>
-                                Eligible amount left:{" "}
-                                <b>
-                                    ₹
-                                    {Math.max(
-                                        0,
-                                        billSummary.eligibleAmount -
-                                            tickedSchemes.filter((t) => !isBillScheme(t)).reduce((sum, t) => sum + minBillOf(t), 0)
-                                    ).toFixed(2)}
-                                </b>
-                            </span>
+                        <div className="mb-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
+                            {[
+                                ["Bill amount", billSummary.billAmount, "text-third-950"],
+                                ["Eligible amount", billSummary.eligibleAmount, "text-third-950"],
+                                ["Picked offers take", itemTaken, "text-green-700"],
+                                ["Eligible left", Math.max(0, billSummary.eligibleAmount - itemTaken), "text-blue-700"],
+                            ].map(([label, value, color]) => (
+                                <div key={label} className="rounded-lg border border-app-border bg-app-paper px-3 py-2">
+                                    <div className="text-[11px] font-medium uppercase tracking-wide text-third-500">{label}</div>
+                                    <div className={`text-sm font-bold ${color}`}>{money(value)}</div>
+                                </div>
+                            ))}
                         </div>
                     )}
-                    <div ref={schemesGridRef} className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <div ref={schemesGridRef} className="grid grid-cols-1 items-start gap-3 md:grid-cols-2">
                         {availableSchemeList.map((scheme, index) => {
                             const id = Number(scheme.id);
                             const isSelected = selectedSchemeIds.includes(id);
                             const isSelectable = canTick(scheme);
+                            const isBill = isBillScheme(scheme);
                             const pickOrder = isSelected ? selectedSchemeIds.indexOf(id) + 1 : 0;
-                            const blockedMessage = `Needs bill of ₹${minBillOf(scheme).toFixed(2)} - only ₹${poolLeft(scheme).toFixed(2)} eligible amount left`;
-                            const itemNames = (scheme.items || []).map((item) => item.itemName).filter(Boolean);
+                            const schemeItems = scheme.items || [];
                             const discountAmount = Number(scheme.discountAmount) || 0;
-                            const willAddItem = scheme.itemInCart === false || (scheme.autoAddItems?.length > 0 && Number(scheme.eligibleQty) > 0);
-                            const message = scheme.message?.replace(/^Applied:\s*/i, "");
+                            const reward = rewardText(scheme);
+                            const canToggle = isSelectable || isSelected;
 
                             return (
                                 <div
                                     key={scheme.id}
-                                    className={`relative rounded-xl border p-4 pr-14 transition-colors focus-within:ring-2 focus-within:ring-blue-400 focus-within:ring-offset-1 ${
+                                    onClick={(event) => {
+                                        if (!canToggle) return;
+                                        if (event.target instanceof Element && event.target.closest("button, input, svg, .MuiCheckbox-root")) return;
+                                        toggleScheme(id);
+                                    }}
+                                    className={`rounded-xl border p-3 transition-colors focus-within:ring-2 focus-within:ring-blue-400 ${
                                         isSelected
-                                            ? "border-green-500 bg-green-50 ring-1 ring-green-200 shadow-sm"
+                                            ? "cursor-pointer border-green-500 bg-green-50 shadow-sm"
                                             : !isSelectable
-                                              ? "border-app-border bg-gray-50 opacity-60"
-                                              : "border-app-border bg-app-paper hover:border-green-300 hover:bg-green-50/40"
+                                              ? "cursor-not-allowed border-app-border bg-gray-50 opacity-60"
+                                              : "cursor-pointer border-app-border bg-app-paper hover:border-green-300 hover:bg-green-50/40"
                                     }`}
                                 >
-                                    <Checkbox
-                                        autoFocus={index === firstSelectableSchemeIndex}
-                                        slotProps={{
-                                            input: {
-                                                ref: (checkbox) => {
-                                                    checkboxRefs.current[index] = checkbox;
+                                    <div className="flex items-start justify-between gap-2">
+                                        <div className="min-w-0">
+                                            <div className="flex flex-wrap items-center gap-1.5">
+                                                <Typography className="break-words font-semibold! text-third-950!">
+                                                    {initialLettersCapitalize(scheme.schemeName || scheme.schemeCode)}
+                                                </Typography>
+                                                {pickOrder > 0 && (
+                                                    <span className="rounded-full bg-gray-800 px-2 py-0.5 text-[10px] font-bold text-white">
+                                                        #{pickOrder}
+                                                    </span>
+                                                )}
+                                            </div>
+                                            {scheme.schemeCode && <div className="text-xs text-third-500">{scheme.schemeCode}</div>}
+                                        </div>
+                                        <Checkbox
+                                            autoFocus={index === firstSelectableSchemeIndex}
+                                            slotProps={{
+                                                input: {
+                                                    ref: (checkbox) => {
+                                                        checkboxRefs.current[index] = checkbox;
+                                                    },
+                                                    "aria-label": `Select ${scheme.schemeName || scheme.schemeCode}`,
                                                 },
-                                                "aria-label": `Select ${scheme.schemeName || scheme.schemeCode}`,
-                                            },
-                                        }}
-                                        checked={isSelected}
-                                        disabled={!isSelectable && !isSelected}
-                                        onChange={() => toggleScheme(id)}
-                                        sx={{ position: "absolute", top: 8, right: 8 }}
-                                    />
-                                    <div className="mb-3 flex flex-wrap items-center gap-2 pr-2">
-                                        <span
-                                            className={`rounded-full px-2.5 py-1 text-[10px] font-bold tracking-wide ${
-                                                willAddItem
-                                                    ? "bg-blue-100 text-blue-800"
-                                                    : "bg-green-100 text-green-800"
-                                            }`}
-                                        >
-                                            {!isSelectable && !isSelected
-                                                ? "NOT AVAILABLE NOW"
-                                                : willAddItem
-                                                  ? scheme.itemInCart === false
-                                                      ? "ITEM ADDED ON APPLY"
-                                                      : `+${scheme.autoAddItems?.[0]?.qty || 1} QTY ADDED ON APPLY`
-                                                  : "READY TO APPLY"}
-                                        </span>
-                                        {pickOrder > 0 && (
-                                            <span className="rounded-full bg-gray-800 px-2 py-1 text-[10px] font-bold text-white">
-                                                PICKED #{pickOrder}
+                                            }}
+                                            checked={isSelected}
+                                            disabled={!isSelectable && !isSelected}
+                                            onChange={() => toggleScheme(id)}
+                                            sx={{ p: 0.5, mt: -0.5, mr: -0.5 }}
+                                        />
+                                    </div>
+
+                                    <div className="mt-2 flex flex-wrap items-center gap-1.5 text-xs">
+                                        {minBillOf(scheme) > 0 && (
+                                            <span className="rounded-md bg-gray-100 px-2 py-0.5 text-third-700">
+                                                Min bill {money(minBillOf(scheme))}
                                             </span>
                                         )}
+                                        {reward && (
+                                            <span className="rounded-md bg-blue-50 px-2 py-0.5 font-medium text-blue-800">{reward}</span>
+                                        )}
                                         {discountAmount > 0 && (
-                                            <span className="rounded-lg bg-green-100 px-2.5 py-1 text-sm font-bold text-green-800">
-                                                Save ₹{discountAmount.toFixed(2)}
+                                            <span className="rounded-md bg-green-100 px-2 py-0.5 font-bold text-green-800">
+                                                Save {money(discountAmount)}
                                             </span>
                                         )}
                                     </div>
-                                    <Typography className="font-semibold! text-third-950!">
-                                        {initialLettersCapitalize(scheme.schemeName || scheme.schemeCode)}
-                                    </Typography>
-                                    {scheme.schemeCode && (
-                                        <div className="text-xs text-third-500">{scheme.schemeCode}</div>
-                                    )}
-                                    {minBillOf(scheme) > 0 && (
-                                        <div className="mt-1 text-xs text-third-600">
-                                            Min bill: ₹{minBillOf(scheme).toFixed(2)}
-                                        </div>
-                                    )}
+
                                     {!isSelectable && !isSelected && (
-                                        <div className="mt-1 rounded-lg border border-amber-200 bg-amber-50 px-2 py-1 text-xs text-amber-900">
-                                            {blockedMessage}
+                                        <div className="mt-2 rounded-lg border border-amber-200 bg-amber-50 px-2 py-1 text-xs text-amber-900">
+                                            Not available - needs {money(minBillOf(scheme))}, only {money(poolLeft(scheme))} eligible amount left
                                         </div>
                                     )}
-                                    {message && (isSelectable || isSelected) && (
-                                        <div
-                                            className={`mt-1 rounded-lg border px-2 py-1 text-xs ${
-                                                !isSelectable && !isSelected
-                                                    ? "border-amber-200 bg-amber-50 text-amber-900"
-                                                    : willAddItem
-                                                      ? "border-blue-200 bg-blue-50 text-blue-900"
-                                                      : "border-green-200 bg-white text-green-800"
-                                            }`}
-                                        >
-                                            {message}
-                                        </div>
-                                    )}
-                                    {scheme.description && (
-                                        <div className="mt-1 text-xs text-third-600">{scheme.description}</div>
-                                    )}
-                                    {itemNames.length > 0 && (
-                                        <div className="mt-3">
-                                            <div className="mb-1 text-xs font-semibold text-third-700">
-                                                Eligible Items ({itemNames.length})
+                                    {scheme.description && <div className="mt-2 text-xs text-third-600">{scheme.description}</div>}
+
+                                    {!isBill && schemeItems.length > 0 && (
+                                        isSelected ? (
+                                            <div className="mt-2 rounded-lg border border-green-200 bg-white px-2 py-1.5">
+                                                <div className="mb-0.5 text-[11px] font-semibold uppercase tracking-wide text-third-500">
+                                                    {schemeItems.length > 1 ? "Choose item & quantity" : "Quantity"}
+                                                </div>
+                                                {schemeItems.map((item) => {
+                                                    const qty = qtyOf(scheme, item);
+                                                    const max = maxQtyFor(scheme, item);
+                                                    return (
+                                                        <div
+                                                            key={itemKey(item)}
+                                                            className="flex items-center justify-between gap-2 border-t border-gray-100 py-1.5 first:border-t-0"
+                                                        >
+                                                            <div className="min-w-0 flex-1">
+                                                                <div
+                                                                    className={`break-words text-xs leading-snug ${qty > 0 ? "font-semibold text-third-950" : "text-third-600"}`}
+                                                                >
+                                                                    {item.itemName || item.itemCode}
+                                                                </div>
+                                                                <div className="text-[11px] text-third-500">
+                                                                    max {max}
+                                                                    {perSlabQty(item) > 1 ? ` - ${perSlabQty(item)} per ${money(minBillOf(scheme))}` : ""}
+                                                                </div>
+                                                            </div>
+                                                            <div className="flex shrink-0 items-center gap-1">
+                                                                <button
+                                                                    type="button"
+                                                                    aria-label={`Decrease ${item.itemName || item.itemCode}`}
+                                                                    className="h-7 w-7 rounded-md border border-app-border bg-app-paper text-base font-bold leading-none disabled:opacity-40"
+                                                                    disabled={qty <= 0}
+                                                                    onClick={() => setPick(scheme, item, qty - 1)}
+                                                                >
+                                                                    -
+                                                                </button>
+                                                                <span className="w-7 text-center text-sm font-bold">{qty}</span>
+                                                                <button
+                                                                    type="button"
+                                                                    aria-label={`Increase ${item.itemName || item.itemCode}`}
+                                                                    className="h-7 w-7 rounded-md border border-app-border bg-app-paper text-base font-bold leading-none disabled:opacity-40"
+                                                                    disabled={qty >= max}
+                                                                    onClick={() => setPick(scheme, item, qty + 1)}
+                                                                >
+                                                                    +
+                                                                </button>
+                                                            </div>
+                                                        </div>
+                                                    );
+                                                })}
+                                                <div className="border-t border-gray-100 pt-1 text-xs font-semibold text-green-700">
+                                                    Takes {money(takenBy(scheme))} from eligible amount ({slabsUsedBy(scheme)} x{" "}
+                                                    {money(minBillOf(scheme))})
+                                                </div>
+                                                {schemeItems.some((item) => qtyOf(scheme, item) > maxQtyFor(scheme, item)) && (
+                                                    <div className="text-xs text-red-600">
+                                                        Eligible amount is not enough for this quantity - reduce it.
+                                                    </div>
+                                                )}
                                             </div>
-                                            <div className="flex flex-wrap gap-1.5">
-                                                {itemNames.map((name, index) => (
-                                                    <span
-                                                        key={`${name}-${index}`}
-                                                        className="rounded-md bg-gray-100 px-2 py-1 text-xs text-third-700"
-                                                    >
-                                                        {name}
-                                                    </span>
-                                                ))}
+                                        ) : (
+                                            <div className="mt-2 line-clamp-2 text-xs text-third-600">
+                                                {schemeItems.length > 1 ? "Items: " : "Item: "}
+                                                {schemeItems.map((item) => item.itemName || item.itemCode).join(" / ")}
                                             </div>
-                                        </div>
+                                        )
                                     )}
                                 </div>
                             );

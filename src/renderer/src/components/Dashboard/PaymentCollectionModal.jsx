@@ -62,7 +62,7 @@ const buildCouponItems = (cartRows) =>
         isOfferFreeItem: Boolean(item.isOfferItem),
     }));
 
-    const buildEvaluateCouponItems = (cartRows) =>
+export const buildEvaluateCouponItems = (cartRows) =>
     cartRows.map((item) => ({
         id: item.id,
         itemCode: item.itemCode || item.productCode,
@@ -1340,6 +1340,7 @@ export default function PaymentCollectionModal({
                 onClose={toggleSchemeDialog}
                 storeId={storeId}
                 selectedSchemeIds={draftSchemeIds}
+                appliedSchemes={appliedSchemes}
                 onSelectionChange={setDraftSchemeIds}
                 onApply={handleApplySchemeSelection}
                 items={cartRows}
