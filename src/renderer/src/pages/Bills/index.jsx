@@ -358,6 +358,7 @@ export default function Bills() {
             <KitShow show={isKOTModalOpen}>
                 <KOTPrintModal
                     isOpen={isKOTModalOpen}
+                    isDuplicate
                     onClose={toggleKOTModal}
                     selectedItems={selectedInvoiceList}
                 />

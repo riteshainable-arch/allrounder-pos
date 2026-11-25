@@ -676,6 +676,10 @@ export default function ManagerInvoicesPanel() {
             <KitShow show={isManagerUnlockModalOpen}>
                 <ManagerUnlockModal
                     isOpen={isManagerUnlockModalOpen}
+                    title="Manager Authentication — Reprint Bill"
+                    infoText="Reprinting a bill needs manager approval. Select the manager and enter the password."
+                    confirmText="Verify & Print"
+                    successMessage="Manager verified."
                     onClose={toggleManagerUnlockModal}
                     onSuccess={() => {
                         toggleManagerUnlockModal();
@@ -687,6 +691,7 @@ export default function ManagerInvoicesPanel() {
             <KitShow show={printModalOpen}>
                 <KOTPrintModal
                     isOpen={printModalOpen}
+                    isDuplicate
                     autoPrint
                     onClose={handleClosePrintModal}
                     selectedItems={selectedInvoiceList}

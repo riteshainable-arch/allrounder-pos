@@ -455,6 +455,10 @@ const MenuDrawer = ({ isOpen, onClose, userData, handleLogout, setIsSyncCustomer
                     <KitShow show={isManagerUnlockModalOpen}>
                         <ManagerUnlockModal
                             isOpen={isManagerUnlockModalOpen}
+                            title="Manager Authentication — Invoices"
+                            infoText="Invoices need manager approval. Select the manager and enter the password."
+                            confirmText="Verify & Open Invoices"
+                            successMessage="Manager verified."
                             onClose={() => {
                                 setIsManagerUnlockModalOpen(false);
                                 setPendingNavigation(null);

@@ -31,15 +31,35 @@ const getCouponDiscountAmount = (bill) =>
 
 // Pause between the bill job and the wheel-ticket job so the printer cuts in between. Raise it if a slow
 // printer still joins the two slips.
-const TICKET_PRINT_GAP_MS = 4000;
+const TICKET_PRINT_GAP_MS = 2000;
+// The wheel ticket arrives with the bill detail from the server: wait at most this long for it before deciding.
+const TICKET_LOAD_WAIT_MS = 8000;
 
-const KOTPrintModal = ({ isOpen, onClose, selectedItems: selectedItemsProp, autoPrint = false }) => {
+const waitUntil = async (check, timeoutMs, stepMs = 100) => {
+    const startedAt = Date.now();
+    while (!check() && Date.now() - startedAt < timeoutMs) {
+        await new Promise((resolve) => window.setTimeout(resolve, stepMs));
+    }
+    return check();
+};
+
+// isDuplicate: a reprint of a bill that was already printed when it was generated (prints a DUPLICATE label).
+const KOTPrintModal = ({ isOpen, onClose, selectedItems: selectedItemsProp, autoPrint = false, isDuplicate = false }) => {
     const isOnline = useOnlineStatus();
-    const { invoiceBillDetail, isInvoiceBillDetailLoading } = useInvoiceBillDetail(
-        selectedItemsProp?.invoiceNo ?? selectedItemsProp?.bill?.invoiceNo,
-        isOnline && Boolean(selectedItemsProp?.bill?.invoiceNo)
+    // Any bill that has a server invoice number is printed from the server's full bill detail. Rows from the
+    // invoice list / manager panel carry only list fields (no items), so they must not skip this fetch.
+    const serverInvoiceNo = selectedItemsProp?.invoiceNo ?? selectedItemsProp?.bill?.invoiceNo;
+    const { invoiceBillDetail, invoiceBillDetailError, isInvoiceBillDetailLoading } = useInvoiceBillDetail(
+        serverInvoiceNo,
+        isOnline && Boolean(serverInvoiceNo)
     );
-    const autoPrintStarted = useRef(false);
+    // The bill (prop object) the auto print last started for: a new bill arriving while the modal is still open
+    // (previous ticket still printing) must print too.
+    const autoPrintedFor = useRef(null);
+    const currentPropRef = useRef(null);
+    const printQueueRef = useRef(Promise.resolve());
+    // Latest values for the async print steps (their closure would otherwise hold the first render's data).
+    const latestRef = useRef({ hasWheelTicket: false, isLoading: false });
     const onCloseRef = useRef(onClose);
     const [isPrinting, setIsPrinting] = useState(false);
 
@@ -141,17 +161,36 @@ const KOTPrintModal = ({ isOpen, onClose, selectedItems: selectedItemsProp, auto
         onCloseRef.current = onClose;
     }, [onClose]);
 
+    const hasPrintableItems = (selectedItems?.saleItems ?? selectedItems?.items ?? []).length > 0;
+    useEffect(() => {
+        if (invoiceBillDetailError && !hasPrintableItems) {
+            toast.error("Bill details could not be loaded, so this bill cannot be printed. Check the internet and try again.");
+        }
+    }, [invoiceBillDetailError, hasPrintableItems]);
+
     const wheelTicket = selectedItems?.wheelTicket ?? null;
-    const hasWheelTicket = Boolean(wheelTicket && wheelTicket.status !== "CANCELLED");
+    // The wheel ticket was already handed over with the original bill, so a duplicate copy does not reprint it.
+    const hasWheelTicket = !isDuplicate && Boolean(wheelTicket && wheelTicket.status !== "CANCELLED");
+
+    useEffect(() => {
+        latestRef.current = { hasWheelTicket, isLoading: Boolean(isInvoiceBillDetailLoading) };
+        currentPropRef.current = selectedItemsProp;
+    });
 
     // Bill first, then the wheel ticket as a separate print job (its own slip) - automatically, no extra click.
     const printBillAndTicket = async () => {
-        await printToDefaultPrinter();
-        if (!hasWheelTicket) return;
+        // While the bill detail is loading the modal shows skeleton rows instead of the bill, so printing then gives a
+        // blank page. The wheel ticket also arrives with that detail. Wait for it, then let React paint it.
+        await waitUntil(() => !latestRef.current.isLoading, TICKET_LOAD_WAIT_MS);
+        await new Promise((resolve) => window.requestAnimationFrame(() => window.requestAnimationFrame(resolve)));
 
-        // Let the printer finish printing AND cut the bill slip before the ticket job is sent. Sent back to back,
+        await printToDefaultPrinter();
+        if (!latestRef.current.hasWheelTicket) return;
+
+        // Let the printer finish and cut the bill slip before the ticket job is sent. Sent back to back,
         // thermal drivers merge the two jobs onto one uncut strip (the cut only happens once the queue is idle).
         await new Promise((resolve) => window.setTimeout(resolve, TICKET_PRINT_GAP_MS));
+        if (!latestRef.current.hasWheelTicket) return;
         document.body.dataset.printTarget = "ticket";
         try {
             await new Promise((resolve) => window.requestAnimationFrame(() => window.requestAnimationFrame(resolve)));
@@ -162,32 +201,40 @@ const KOTPrintModal = ({ isOpen, onClose, selectedItems: selectedItemsProp, auto
             delete document.body.dataset.printTarget;
         }
     };
+
     useEffect(() => {
         if (!isOpen) {
-            autoPrintStarted.current = false;
+            autoPrintedFor.current = null;
             return;
         }
 
-        if (!isOpen || !autoPrint || !selectedItems || autoPrintStarted.current) return;
+        if (!autoPrint || !selectedItems || autoPrintedFor.current === selectedItemsProp) return;
 
-        autoPrintStarted.current = true;
+        const printedFor = selectedItemsProp;
+        autoPrintedFor.current = printedFor;
         let printStarted = false;
 
-        const timer = window.setTimeout(async () => {
+        const timer = window.setTimeout(() => {
             printStarted = true;
-            try {
-                await printBillAndTicket();
-                onCloseRef.current?.();
-            } catch (error) {
-                toast.error(error?.message || "Unable to print invoice.");
-                autoPrintStarted.current = false;
-            }
+            // One print at a time: a bill generated while the previous ticket is still printing waits for it.
+            printQueueRef.current = printQueueRef.current
+                .catch(() => undefined)
+                .then(async () => {
+                    try {
+                        await printBillAndTicket();
+                    } catch (error) {
+                        toast.error(error?.message || "Unable to print invoice.");
+                    }
+                    // Close only when no newer bill is waiting to be printed in this modal.
+                    if (currentPropRef.current === printedFor) onCloseRef.current?.();
+                });
         }, 100);
 
         return () => {
             window.clearTimeout(timer);
-            if (!printStarted) autoPrintStarted.current = false;
+            if (!printStarted && autoPrintedFor.current === printedFor) autoPrintedFor.current = null;
         };
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [isOpen, autoPrint, selectedItems]);
 
     const items = selectedItems?.saleItems ?? selectedItems?.items ?? []
@@ -291,7 +338,13 @@ const KOTPrintModal = ({ isOpen, onClose, selectedItems: selectedItemsProp, auto
         <Dialog
             open={isOpen}
             aria-hidden={autoPrint}
-            sx={autoPrint ? { visibility: "hidden" } : undefined}
+            sx={autoPrint ? { visibility: "hidden", pointerEvents: "none" } : undefined}
+            // Auto print runs behind the scenes: it must not trap the keyboard or lock the page while it prints.
+            hideBackdrop={autoPrint}
+            disableEnforceFocus={autoPrint}
+            disableAutoFocus={autoPrint}
+            disableRestoreFocus={autoPrint}
+            disableScrollLock={autoPrint}
             onClose={onClose}
             onKeyDown={(e) => {
                 if (e.key === "Enter") {
@@ -331,6 +384,11 @@ const KOTPrintModal = ({ isOpen, onClose, selectedItems: selectedItemsProp, auto
                                 style={{ page: "kot-thermal" }}
                             >
                                 <div className="border-b border-third-500">
+                                    {isDuplicate && (
+                                        <div className="mb-1 border-2 border-black py-0.5 text-center text-sm font-extrabold tracking-widest">
+                                            *** DUPLICATE ***
+                                        </div>
+                                    )}
                                     <div className="flex flex-col gap-1 items-center">
                                         <img src={Logo} alt="logo" className="w-28" />
                                         <div className="w-full! pb-0.5 text-[10px] font-bold text-center border-b border-third-500">
@@ -357,7 +415,7 @@ const KOTPrintModal = ({ isOpen, onClose, selectedItems: selectedItemsProp, auto
                                         <div className="text-xs font-bold">GSTIN : 07AAPCR5365K1ZP </div>
                                     </div>
                                     <div className="border-b border-third-500 text-sm font-bold text-center">
-                                        TAX INVOICE
+                                        TAX INVOICE{isDuplicate ? " (DUPLICATE COPY)" : ""}
                                     </div>
 
                                     <div className="grid grid-cols-[100px_1fr] gap-1 py-0.5 text-[10px]">
