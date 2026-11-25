@@ -833,8 +833,12 @@ export default function Dashboard() {
         }
 
         if (selectedPriceLayer) {
+            // One cart row per MRP: the chosen price layer is part of the row id, so another MRP of the same item is a
+            // new row instead of overwriting the first one (the same MRP again adds to its own row).
             product = {
                 ...product,
+                id: `${product.baseProductId ?? product.id}-pl-${selectedPriceLayer.id}`,
+                baseProductId: product.baseProductId ?? product.id,
                 price: selectedPriceLayer.salePrice,
                 salePrice: selectedPriceLayer.salePrice,
                 latestSalePrice: selectedPriceLayer.salePrice,
@@ -856,22 +860,7 @@ export default function Dashboard() {
         let nextRows = cartRows;
 
         setCartRows((prev) => {
-            const currentRows = selectedPriceLayer
-                ? prev.map((row) =>
-                    String(row.id) === String(product.id) && !row.isOfferItem
-                        ? {
-                            ...row,
-                            price: product.price,
-                            salePrice: product.salePrice,
-                            latestSalePrice: product.latestSalePrice,
-                            bkdAmount: product.bkdAmount,
-                            latestMRP: product.latestMRP,
-                            mrp: product.mrp,
-                            inventoryPriceLayerId: product.inventoryPriceLayerId,
-                        }
-                        : row
-                )
-                : prev;
+            const currentRows = prev;
             const paidRow = currentRows.find(x => x.id === product.id);
             const freeRow = currentRows.find(x => x.offerForId === product.id);
             const quantity = (paidRow?.quantity || 0) + (freeRow?.quantity || 0) + 1;
