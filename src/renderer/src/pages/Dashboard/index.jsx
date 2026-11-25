@@ -788,11 +788,36 @@ export default function Dashboard() {
         if (!product) return;
         if (!requireDayStarted()) return;
 
-        const activePriceLayers = Array.isArray(product.priceLayers)
+        const stockPriceLayers = Array.isArray(product.priceLayers)
             ? product.priceLayers.filter(
                 (layer) => layer.isActive !== false && Number.isFinite(Number(layer.salePrice))
             )
             : [];
+        // Other MRPs of the item (BUSY purchases / manual) that have no stock layer: offered next to the stock layers.
+        const fallbackSalePrice = Number(product.latestSalePrice ?? product.salePrice);
+        const optionLayers = Array.isArray(product.priceOptions)
+            ? product.priceOptions
+                .filter((option) => Number(option?.mrp) > 0)
+                .map((option) => ({
+                    id: `opt-${option.id}`,
+                    inventoryId: product.inventoryId,
+                    itemCode: product.itemCode,
+                    storeId: product.storeId,
+                    mrp: Number(option.mrp),
+                    salePrice:
+                        option.salePrice != null && Number(option.salePrice) > 0
+                            ? Number(option.salePrice)
+                            : fallbackSalePrice,
+                    purchasePrice: 0,
+                    stockQty: null,
+                    isActive: true,
+                    sourceType: "PRICE_OPTION",
+                    isPriceOption: true,
+                    isDefault: !!option.isDefault,
+                }))
+                .filter((layer) => Number.isFinite(Number(layer.salePrice)))
+            : [];
+        const activePriceLayers = [...stockPriceLayers, ...optionLayers];
 
         if (!selectedPriceLayer && activePriceLayers.length > 1) {
             const currentLayer = activePriceLayers.find(
@@ -816,7 +841,8 @@ export default function Dashboard() {
                 bkdAmount: selectedPriceLayer.salePrice,
                 latestMRP: selectedPriceLayer.mrp ?? product.latestMRP,
                 mrp: selectedPriceLayer.mrp ?? product.mrp,
-                inventoryPriceLayerId: selectedPriceLayer.id ?? null,
+                // An MRP option has no stock layer: bill it like a product without layers.
+                inventoryPriceLayerId: selectedPriceLayer.isPriceOption ? null : (selectedPriceLayer.id ?? null),
             };
         }
 

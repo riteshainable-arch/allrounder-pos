@@ -68,14 +68,14 @@ export default function PriceLayerModal({
             onClose={onClose}
             title={
                 <div className="flex flex-col gap-0.5">
-                    <div className="text-sm font-semibold text-third-950">Select Sale Price</div>
+                    <div className="text-sm font-semibold text-third-950">Select MRP</div>
                     {productName && <div className="text-xs text-third-500 truncate">{productName}</div>}
                 </div>
             }
             titleClass="p-3! border-b"
         >
             <div className="px-4 py-4">
-                <div className="mb-3 text-xs font-medium text-third-500">Select the price layer you want to use</div>
+                <div className="mb-3 text-xs font-medium text-third-500">This product has more than one MRP. Select the MRP you want to add</div>
 
                 <FormControl fullWidth>
                     <RadioGroup
@@ -126,7 +126,7 @@ export default function PriceLayerModal({
                                                 ${selected ? "text-primary" : "text-third-950"}
                                             `}
                                                 >
-                                                    {priceFormat(layer.salePrice)}
+                                                    MRP {priceFormat(layer.mrp)}
                                                 </div>
 
                                                 {selected && (
@@ -138,18 +138,22 @@ export default function PriceLayerModal({
 
                                             <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-third-500">
                                                 <span>
-                                                    MRP:{" "}
+                                                    Sale price:{" "}
                                                     <span className="font-medium text-third-700">
-                                                        {priceFormat(layer.mrp)}
+                                                        {priceFormat(layer.salePrice)}
                                                     </span>
                                                 </span>
 
                                                 <span>
                                                     Stock:{" "}
                                                     <span className="font-medium text-third-700">
-                                                        {layer.stockQty ?? "-"}
+                                                        {layer.isPriceOption ? "no stock entry" : (layer.stockQty ?? "-")}
                                                     </span>
                                                 </span>
+
+                                                {layer.isDefault && (
+                                                    <span className="font-medium text-third-700">Latest MRP</span>
+                                                )}
                                             </div>
                                         </div>
                                     </label>
