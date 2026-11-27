@@ -798,8 +798,6 @@ export default function Dashboard() {
         const optionLayers = Array.isArray(product.priceOptions)
             ? product.priceOptions
                 .filter((option) => Number(option?.mrp) > 0)
-                // Only MRPs with stock in BUSY are offered; picking one is never blocked by stock.
-                .filter((option) => option.stockQty == null || Number(option.stockQty) > 0)
                 .map((option) => ({
                     id: `opt-${option.id}`,
                     inventoryId: product.inventoryId,
