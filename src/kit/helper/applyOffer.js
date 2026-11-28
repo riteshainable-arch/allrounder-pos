@@ -344,6 +344,7 @@ export const updateNormalRow = (cart, row, quantity) => {
             ? {
                 ...item,
                 quantity,
+                loose: Boolean(item.loose || row.loose),
             }
             : item
     );

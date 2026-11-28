@@ -91,6 +91,28 @@ const formSchema = yup.object({
 export const POS_STORE_ID = 1;
 const HOLD_BILL_STORAGE_KEY = "dashboardHoldBills";
 
+// Weighing-scale label prints the product barcode and the weight as `barcode-qty`, e.g. 890556-1.068.
+const SCALE_LABEL_PATTERN = /^(\d+)-(\d+(?:\.\d+)?)$/;
+
+const roundQty = (value) => {
+    const parsed = Number(value);
+    if (!Number.isFinite(parsed)) return 0;
+    return Math.round(parsed * 1000) / 1000;
+};
+
+const parseScaleLabel = (value) => {
+    const match = String(value || "").trim().match(SCALE_LABEL_PATTERN);
+    if (!match) return null;
+    const qty = roundQty(match[2]);
+    if (!(qty > 0)) return null;
+    return { code: match[1], qty };
+};
+
+const isLooseQty = (value) => {
+    const qty = roundQty(value);
+    return qty > 0 && Math.abs(qty - Math.round(qty)) > 0.0001;
+};
+
 const blurOnEscape = (event, inputRef) => {
     if (event.key !== "Escape") return false;
 
@@ -368,7 +390,7 @@ export default function Dashboard() {
         }
 
         closePriceLayerModal();
-        handleProductSelect(pendingSelection.product, selectedLayer);
+        handleProductSelect(pendingSelection.product, selectedLayer, pendingSelection.addQty ?? 1);
     };
     const toggleAddHoldModal = () => setShowAddHoldDialog(!showAddHoldDialog);
 
@@ -784,9 +806,12 @@ export default function Dashboard() {
         return nextRows;
     };
 
-    const handleProductSelect = (product, selectedPriceLayer = null) => {
-        if (!product) return;
+    const handleProductSelect = (productArg, selectedPriceLayer = null, addQty = 1) => {
+        if (!productArg) return;
         if (!requireDayStarted()) return;
+
+        const extraQty = roundQty(addQty) > 0 ? roundQty(addQty) : 1;
+        let product = productArg.loose || isLooseQty(extraQty) ? { ...productArg, loose: true } : productArg;
 
         const stockPriceLayers = Array.isArray(product.priceLayers)
             ? product.priceLayers.filter(
@@ -819,14 +844,14 @@ export default function Dashboard() {
             : [];
         const activePriceLayers = [...stockPriceLayers, ...optionLayers];
 
-        if (!selectedPriceLayer && activePriceLayers.length > 1) {
+        if (product.mrpWise !== false && !selectedPriceLayer && activePriceLayers.length > 1) {
             const currentLayer = activePriceLayers.find(
                 (layer) => String(layer.id) === String(product.inventoryPriceLayerId)
             );
             const initialLayer = currentLayer || activePriceLayers[0];
             const initialLayerIndex = activePriceLayers.indexOf(initialLayer);
 
-            setPendingPriceLayerProduct({ product, priceLayers: activePriceLayers });
+            setPendingPriceLayerProduct({ product, priceLayers: activePriceLayers, addQty: extraQty });
             setSelectedPriceLayerId(String(initialLayer.id ?? initialLayerIndex));
             setIsPriceLayerModalOpen(true);
             return;
@@ -863,7 +888,7 @@ export default function Dashboard() {
             const currentRows = prev;
             const paidRow = currentRows.find(x => x.id === product.id);
             const freeRow = currentRows.find(x => x.offerForId === product.id);
-            const quantity = (paidRow?.quantity || 0) + (freeRow?.quantity || 0) + 1;
+            const quantity = roundQty((paidRow?.quantity || 0) + (freeRow?.quantity || 0) + extraQty);
             const { buy, free } = parseOfferRatio(offer?.offerTypeName || "");
             const initialSetQty = buy && free ? buy + free : quantity;
 
@@ -872,7 +897,7 @@ export default function Dashboard() {
                     nextRows = applyBuyXGetY(
                         currentRows,
                         product,
-                        paidRow || freeRow ? quantity : initialSetQty
+                        paidRow || freeRow || product.loose ? quantity : initialSetQty
                     );
                     break;
 
@@ -986,7 +1011,7 @@ export default function Dashboard() {
                     );
 
                     if (existing) {
-                        return applyFOCOffer(currentRows, existing, existing.quantity + 1);
+                        return applyFOCOffer(currentRows, existing, roundQty(existing.quantity + extraQty));
                     }
 
                     const existingWithoutOffer = currentRows.find(
@@ -1045,15 +1070,21 @@ export default function Dashboard() {
 
             const freeRow = prev.find((x) => x.offerForId === row.id);
             const oldTotal = row.quantity + (freeRow?.quantity || 0);
+            const loose = Boolean(row.loose);
+            const minQty = loose ? 0.001 : 1;
+            const nextQty = (value) => {
+                const rounded = roundQty(value);
+                return Math.max(minQty, loose ? rounded : Math.round(rounded) || minQty);
+            };
 
             let totalQty;
 
             if (action === "increment") {
-                totalQty = oldTotal + 1;
+                totalQty = nextQty(oldTotal + 1);
             } else if (action === "decrement") {
-                totalQty = Math.max(1, oldTotal - 1);
+                totalQty = nextQty(oldTotal - 1);
             } else {
-                totalQty = Math.max(1, Number(quantity));
+                totalQty = nextQty(quantity);
             }
 
             const isIncrease = totalQty > oldTotal;
@@ -1161,7 +1192,7 @@ export default function Dashboard() {
                     return applyDiscountOffer(prev, row, Math.max(1, totalQty));
 
                 default:
-                    return updateNormalRow(prev, row, Math.max(1, totalQty));
+                    return updateNormalRow(prev, row, totalQty);
             }
         });
     };
@@ -1680,12 +1711,12 @@ export default function Dashboard() {
                         }
                     }}
                     onValueChange={(value, action) => {
-                        if (action === "decrement" && params.row.quantity === 1) {
+                        if (action === "decrement" && Number(params.row.quantity) <= 1) {
                             setSelectedRow(params.row);
                             toggleDeleteDialog();
                             return;
                         }
-                        handleQuantityChange(params.row.id, Number(value) || 1, action);
+                        handleQuantityChange(params.row.id, Number(value) || (params.row.loose ? 0.001 : 1), action);
                     }}
                 />
             ),
@@ -2197,21 +2228,31 @@ export default function Dashboard() {
         barcodeLookupInProgressRef.current = true;
 
         try {
-            const scannedBarcode = barcode.trim().toLowerCase();
+            const scale = parseScaleLabel(barcode);
+            const lookup = scale ? scale.code : barcode.trim();
+            const scannedBarcode = lookup.toLowerCase();
+            const matchesBarcode = (item) => getProductBarcodes(item).includes(scannedBarcode);
+            const matchesItemCode = (item) =>
+                String(item.itemCode ?? item.productCode ?? "").trim().toLowerCase() === scannedBarcode;
             const inMemoryProducts = [...cartRows, ...productsList];
-            let product = inMemoryProducts.find((item) =>
-                getProductBarcodes(item).includes(scannedBarcode)
-            );
+            let product = inMemoryProducts.find(matchesBarcode);
 
             if (!product) {
-                const products = await window.api.getProducts(barcode);
-                product = products.find((item) =>
-                    getProductBarcodes(item).includes(scannedBarcode)
-                );
+                const products = (await window.api.getProducts(lookup)) || [];
+                // Barcode can be any length (even 2 digits): exact barcode first, then exact item code, and a
+                // single remaining search hit is taken as the product the cashier meant.
+                product =
+                    products.find(matchesBarcode) ||
+                    products.find(matchesItemCode) ||
+                    (products.length === 1 ? products[0] : undefined);
             }
 
             if (product) {
-                handleProductSelect(product);
+                handleProductSelect(
+                    scale ? { ...product, loose: true } : product,
+                    null,
+                    scale ? scale.qty : 1
+                );
                 if (source === "barcode") {
                     setSelectedRow(null);
                     if (!scanEnabled) {
@@ -2297,14 +2338,18 @@ export default function Dashboard() {
                 return;
             }
 
-            if (/^\d$/.test(event.key)) {
-                if (now - sequence.lastKeyAt > 1000) {
-                    sequence.digits = "";
-                    sequence.startedAt = now;
-                } else if (!sequence.digits.length) {
-                    sequence.startedAt = now;
-                }
-                sequence.digits += event.key;
+            const buffer = now - sequence.lastKeyAt > 1000 ? "" : sequence.digits;
+            const nextBuffer = /^\d$/.test(event.key)
+                ? buffer + event.key
+                : event.key === "-" && /^\d+$/.test(buffer)
+                    ? buffer + "-"
+                    : event.key === "." && /^\d+-\d+$/.test(buffer)
+                        ? buffer + "."
+                        : null;
+
+            if (nextBuffer !== null) {
+                if (!buffer.length) sequence.startedAt = now;
+                sequence.digits = nextBuffer;
                 sequence.lastKeyAt = now;
 
                 if (scanEnabled && !isEditableTarget) {
@@ -2316,10 +2361,11 @@ export default function Dashboard() {
             }
 
             if (scanEnabled && (event.key === "NumLock" || event.key === "ScrollLock")) {
+                const isScaleLabel = SCALE_LABEL_PATTERN.test(sequence.digits);
                 const isFastBarcode =
-                    sequence.digits.length >= 8 &&
+                    (isScaleLabel || sequence.digits.length >= 8) &&
                     now - sequence.lastKeyAt <= 1000 &&
-                    now - sequence.startedAt <= 250;
+                    (isScaleLabel || now - sequence.startedAt <= 250);
 
                 if (isFastBarcode) {
                     event.preventDefault();
@@ -2348,6 +2394,7 @@ export default function Dashboard() {
 
             if (event.key === "Enter") {
                 const hasRecentDigits = sequence.digits.length > 0 && now - sequence.lastKeyAt <= 1000;
+                const isScaleLabel = SCALE_LABEL_PATTERN.test(sequence.digits);
                 const isFastBarcode =
                     sequence.digits.length >= 8 &&
                     hasRecentDigits &&
@@ -2360,7 +2407,7 @@ export default function Dashboard() {
                     startedAt: 0,
                 };
 
-                if (scanEnabled && isFastBarcode && /^\d{8,}$/.test(scannedBarcode)) {
+                if (scanEnabled && hasRecentDigits && (isScaleLabel || (isFastBarcode && /^\d{8,}$/.test(scannedBarcode)))) {
                     event.preventDefault();
                     event.stopImmediatePropagation();
 
@@ -3002,7 +3049,7 @@ export default function Dashboard() {
                                                         const exactBarcodeMatch =
                                                             String(option.obj.barcode ?? "").trim() === search;
 
-                                                        if (/^\d{8,}$/.test(search) && !exactBarcodeMatch) {
+                                                        if ((/^\d{8,}$/.test(search) || SCALE_LABEL_PATTERN.test(search)) && !exactBarcodeMatch) {
                                                             resolveScannedBarcode(search, "product-search");
                                                             return;
                                                         }
@@ -3053,7 +3100,7 @@ export default function Dashboard() {
                                                     setBarcodeSearchInput(barcode);
                                                     clearTimeout(barcodeSearchTimerRef.current);
 
-                                                    if (/^\d{8,}$/.test(barcode.trim())) {
+                                                    if (/^\d{8,}$/.test(barcode.trim()) || SCALE_LABEL_PATTERN.test(barcode.trim())) {
                                                         barcodeSearchTimerRef.current = window.setTimeout(() => {
                                                             resolveScannedBarcode(barcode.trim());
                                                         }, 180);
@@ -3064,8 +3111,9 @@ export default function Dashboard() {
 
                                                     if (event.key !== "Enter") return;
 
+                                                    // Any length is allowed: a short barcode typed by hand is searched on Enter.
                                                     const barcode = barcodeSearchInput.trim();
-                                                    if (!/^\d{8,}$/.test(barcode)) return;
+                                                    if (!barcode) return;
 
                                                     event.preventDefault();
                                                     clearTimeout(barcodeSearchTimerRef.current);
